@@ -1,0 +1,15 @@
+sage: M = snappy.Manifold('K13n586')
+sage: MR = regina.Triangulation3(M)
+sage: CS = ConnectedSurfaces(M, -6)
+sage: S = CS.incompressible[0]
+sage: SR = S.surface
+
+sage: MR.triangles()
+<regina.ListView: [ <regina.Face3_2: Triangle 0, internal: 0 (012), 4 (013)>, <regina.Face3_2: Triangle 1, internal: 3 (012), 0 (013)>, <regina.Face3_2: Triangle 2, internal: 0 (023), 2 (032)>, ..., <regina.Face3_2: Triangle 19, internal: 9 (201), 8 (123)> ]>
+
+sage: Tri1 = MR.triangles()[0]
+sage: Tri1
+<regina.Face3_2: Triangle 0, internal: 0 (012), 4 (013)>
+
+sage: Tri1.embedding(0)
+<regina.FaceEmbedding3_2: 0 (012)>
