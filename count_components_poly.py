@@ -1,8 +1,9 @@
 import snappy
 import regina
+from sage.all import *
 from count_components import *
 from nscomplex import *
-import orbits_manifold
+import orbits_poly
 import pickle
 
 class SurfacetoOrbit:
@@ -13,11 +14,7 @@ class SurfacetoOrbit:
     '''
     def __init__(self, surface_list):
         self.num_vertex = len(surface_list)
-        self.R = []  # list of variables as Polynomial objects, named x0, x1, ...
-        for n in range(self.num_vertex):
-            var_name = 'x' + str(n)
-            var_poly = orbits_manifold.Polynomial(0, **{var_name:1})
-            self.R.append(var_poly)
+        self.R = PolynomialRing(ZZ, self.num_vertex, 'x')
         self.vertex_surfaces = surface_list  # this is a list of regina normal surface
         self.triangulation = self.vertex_surfaces[0].triangulation() # this is a regina triangulation
         self.pairings = []
@@ -31,36 +28,32 @@ class SurfacetoOrbit:
         edge_weights_list = []
         for S in self.vertex_surfaces:
             edge_weights_regina = [S.edgeWeight(n) for n in range(self.triangulation.countEdges())]
-            edge_weights = [orbits_manifold.Polynomial(int(e.stringValue())) for e in edge_weights_regina]
+            edge_weights = [int(e.stringValue()) for e in edge_weights_regina]
             edge_weights_list.append(edge_weights)
 
         edge_weights_int = []
         for n in range(self.triangulation.countEdges()):
-            sum_edgeweight = orbits_manifold.Polynomial(0)
+            sum_edgeweight = 0
             for k in range(self.num_vertex):
-                sum_edgeweight += self.R[k] * edge_weights_list[k][n]
+                sum_edgeweight += edge_weights_list[k][n] * self.R.gens()[k]
             edge_weights_int.append(sum_edgeweight)
 
         # total number of intersections with edges(1-skeleton)
-        total_count = orbits_manifold.Polynomial(0)
-        for p in edge_weights_int:
-            total_count += p
+        total_count = sum(edge_weights_int)
 
         # single interval corresponding to all intersections with edges, starts at 1 not 0
-        self.interval = orbits_manifold.Interval(orbits_manifold.Polynomial(1), total_count)
+        self.interval = orbits_poly.Interval(1, total_count)
 
         # list of integer lists where each list contains the start and end integers corresponding to the given edge
         # e.g. if edge0 has 3 intersections then we have [[1, 3], [...], ...]
         self.interval_divided = []
         for i, n in enumerate(edge_weights_int):
-            if n == orbits_manifold.Polynomial(0):
+
+            if n == 0:
                 self.interval_divided.append([])
             else:
-                exclude_last = orbits_manifold.Polynomial(0)
-                for p in edge_weights_int[:i]:
-                    exclude_last += p
-                start = exclude_last + orbits_manifold.Polynomial(1)
-                end = start + edge_weights_int[i] - orbits_manifold.Polynomial(1)
+                start = sum(edge_weights_int[:i]) + 1
+                end = start + edge_weights_int[i] - 1
                 self.interval_divided.append([start, end])
 
     def oriented_edges(self, triangulation):
@@ -83,12 +76,12 @@ class SurfacetoOrbit:
 
         for t, tri in enumerate(triangles):
             for i in range(3):
-                width = orbits_manifold.Polynomial(0)
+                width = 0
                 for n in range(self.num_vertex):
                     width_regina = self.vertex_surfaces[n].arcs(tri.index(), i)
-                    width += self.R[n] * orbits_manifold.Polynomial(int(width_regina.stringValue()))
+                    width += int(width_regina.stringValue()) * self.R.gens()[n]
 
-                if width == orbits_manifold.Polynomial(0):
+                if width == 0:
                     break
                 else:
                     domain_edge = tri.edge((i + 1) % 3).index()
@@ -96,20 +89,20 @@ class SurfacetoOrbit:
                     domain_ori = ori_edges[domain_edge][1]
                     range_ori = ori_edges[range_edge][1]
                     if domain_ori == 1:
-                        domain_interval = orbits_manifold.Interval(self.interval_divided[domain_edge][1] - width + orbits_manifold.Polynomial(1), self.interval_divided[domain_edge][1])
+                        domain_interval = orbits_poly.Interval(self.interval_divided[domain_edge][1] - width + 1, self.interval_divided[domain_edge][1])
                     elif domain_ori == -1:
-                        domain_interval = orbits_manifold.Interval(self.interval_divided[domain_edge][0], self.interval_divided[domain_edge][0] + width - orbits_manifold.Polynomial(1))
+                        domain_interval = orbits_poly.Interval(self.interval_divided[domain_edge][0], self.interval_divided[domain_edge][0] + width - 1)
                     if range_ori == 1:
-                        range_interval = orbits_manifold.Interval(self.interval_divided[range_edge][0], self.interval_divided[range_edge][0] + width - orbits_manifold.Polynomial(1))
+                        range_interval = orbits_poly.Interval(self.interval_divided[range_edge][0], self.interval_divided[range_edge][0] + width - 1)
                     elif range_ori == -1:
-                        range_interval = orbits_manifold.Interval(self.interval_divided[range_edge][1] - width + orbits_manifold.Polynomial(1), self.interval_divided[range_edge][1])
+                        range_interval = orbits_poly.Interval(self.interval_divided[range_edge][1] - width + 1, self.interval_divided[range_edge][1])
                     if domain_ori == range_ori:
-                        self.pairings.append(orbits_manifold.Flip(domain_interval, range_interval))
+                        self.pairings.append(orbits_poly.Flip(domain_interval, range_interval))
                     else:
-                        self.pairings.append(orbits_manifold.Shift(domain_interval, range_interval))
+                        self.pairings.append(orbits_poly.Shift(domain_interval, range_interval))
 
     def countcomponents(self):
-        G = orbits_manifold.Pseudogroup(self.pairings, self.interval)
+        G = orbits_poly.Pseudogroup(self.pairings, self.interval)
         return G.reduce()
 
 

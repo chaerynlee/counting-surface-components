@@ -1,23 +1,128 @@
+# need to define polynomials
+# (list of necessary features)
+# - repr
+# - max, min
+# - +, -, %, *
+# - ==, <,
+
 from __future__ import print_function
 from functools import total_ordering
 from sage.all import *
 Illegal = Exception("Illegal Operation")
-import pickle
 
-# No need to define gcd since it's already a built in function in sage??
-# def gcd(x, y):
-#     if x == 0:
-#         if y == 0:
-#             raise ValueError("gcd(0,0) is undefined.")
-#         else:
-#             return abs(y)
-#     x = abs(x)
-#     y = abs(y)
-#     while y != 0:
-#         r = x%y
-#         x = y
-#         y = r
-#     return x
+
+class Polynomial:
+    def __init__(self, constant=0, **poly):
+        self.poly = poly  # dictionary with keys: variables, values: coefficient
+        self.num_var = len(poly)
+        self.constant = constant
+
+    def __repr__(self):
+        if self.poly == dict():
+            return str(self.constant)
+
+        name = ''
+        for var in self.poly.keys():
+            if self.poly[var] == 0:
+                continue
+            elif self.poly[var] == 1:
+                name += str(var) + ' + '
+            elif self.poly[var] == -1:
+                name += '-' + str(var) + ' + '
+            else:
+                name += str(self.poly[var]) + str(var) + ' + '
+        if self.constant == 0:
+            name = name[:-3]
+        else:
+            name += str(self.constant)
+        return name
+
+    def __eq__(self, other):
+        return (self.poly, self.constant) == (other.poly, other.constant)
+
+    def __neg__(self):
+        neg_constant = - self.constant
+        neg_poly = dict()
+        for var in self.poly.keys():
+            neg_poly[var] = -self.poly[var]
+        return Polynomial(neg_constant, **neg_poly)
+
+    def __add__(self, other):
+        sum_constant = self.constant + other.constant
+        sum_poly = dict()
+        for var in self.poly:
+            sum_poly[var] = self.poly[var]
+        for var in other.poly:
+            if var in self.poly:
+                sum_poly[var] = self.poly[var] + other.poly[var]
+            else:
+                sum_poly[var] = other.poly[var]
+        return Polynomial(sum_constant, **sum_poly)
+
+    def __sub__(self, other):
+        sub_constant = self.constant - other.constant
+        sub_poly = dict()
+        for var in self.poly:
+            sub_poly[var] = self.poly[var]
+        for var in other.poly:
+            if var in self.poly:
+                sub_poly[var] = self.poly[var] - other.poly[var]
+            else:
+                sub_poly[var] = -other.poly[var]
+        return Polynomial(sub_constant, **sub_poly)
+
+    def __lt__(self, other):
+        if set(self.poly.keys()) in set(other.poly.keys()):
+            comparison = True
+            for var in self.poly.keys():
+                if self.poly[var] > other.poly[var]:
+                    comparison = False
+                    break
+                return comparison
+        elif set(other.poly.keys()) in set(self.poly.keys()):
+            comparison = True
+            for var in other.poly.keys():
+                if other.poly[var] > self.poly[var]:
+                    comparison = False
+                    break
+                return comparison
+        else:
+            return 'unknown'
+
+    def __mul__(self, other):
+        # for now assume that we only need multiplication of integers not of polynomials themselves
+        if other.poly != dict():
+            raise Exception('Can only multiply polynomials with numbers')
+        mul_constant = self.constant * other.constant
+        mul_poly = dict()
+        for var in self.poly.keys():
+            mul_poly[var] = self.poly[var] * other.constant
+        return Polynomial(mul_constant, **mul_poly)
+
+    def __truediv__(self, other):
+        # for now assume that we only need division of integers not of polynomials themselves
+        if other.poly != dict():
+            raise Exception('Can only multiply polynomials with numbers')
+        div_constant = self.constant * other.constant
+        div_poly = dict()
+        for var in self.poly.keys():
+            div_poly[var] = self.poly[var] / other.constant
+        return Polynomial(div_constant, **div_poly)
+
+
+def gcd(x, y):
+    if x == 0:
+        if y == 0:
+            raise ValueError("gcd(0,0) is undefined.")
+        else:
+            return abs(y)
+    x = abs(x)
+    y = abs(y)
+    while y != 0:
+        r = x%y
+        x = y
+        y = r
+    return x
 
 @total_ordering
 class Interval:
@@ -27,7 +132,7 @@ class Interval:
     def __init__(self, a, b):
         self.start = min(a,b)
         self.end = max(a,b)
-        self.width = self.end - self.start + 1
+        self.width = self.end - self.start + Polynomial(1)
 
     def __repr__(self):
         return '[{}, {}]'.format(self.start, self.end)
@@ -42,7 +147,7 @@ class Interval:
         """
         True if the Interval contains the integer or Interval argument.
         """
-        if isinstance(x, sage.rings.polynomial.multi_polynomial_libsingular.MPolynomial_libsingular) or isinstance(x, int):
+        if isinstance(x, Polynomial) or isinstance(x, int):
             return self.start <= x <= self.end
         else:
             return self.start <= x.start and x.end <= self.end
@@ -72,7 +177,7 @@ def ToInterval(x):
     """
     if x.__class__ == Interval:
         return x
-    if isinstance(x, sage.rings.polynomial.multi_polynomial_libsingular.MPolynomial_libsingular) or isinstance(x, int):
+    if isinstance(x, Polynomial) or isinstance(x, int):
         return Interval(x,x)
     else:
         return Interval(x[0],x[1])
@@ -130,7 +235,7 @@ class Isometry:
         """
         An Isometry as a mapping (of an integer or an interval).
         """
-        if isinstance(x, sage.rings.polynomial.multi_polynomial_libsingular.MPolynomial_libsingular) or isinstance(x, int):
+        if isinstance(x, Polynomial) or isinstance(x, int):
             if self.flip:
                 return -x + self.shift
             else:
@@ -480,86 +585,14 @@ class Pseudogroup:
         return count
 
 
-
-def main():
-    # f = open('example.pickle', 'rb')
-    # test = pickle.load(f)
-    # test_interval = Interval(test[0].start, test[0].end)
-    # test_pairings = test[1]
-
-    x0, x1 = PolynomialRing(ZZ, 2, 'x').var()
-    # test_interval = [1, 24 * x0 + 24 * x1]
-    # test_pairings = [Shift([1, 2 * x1], [2 * x1 + 1, 4 * x1]),
-    #                  Flip([1, 2 * x1], [6 * x0 + 8 * x1 + 1, 6 * x0 + 10 * x1]),
-    #                  Shift([x0 + 3 * x1 + 1, 2 * x0 + 6 * x1], [5 * x0 + 7 * x1 + 1, 6 * x0 + 10 * x1]),
-    #                  Flip([2 * x1 + 1, x0 + 3 * x1], [11 * x0 + 13 * x1 + 1, 12 * x0 + 14 * x1]),
-    #                  Shift([2 * x0 + 6 * x1 + 1, 5 * x0 + 7 * x1], [8 * x0 + 12 * x1 + 1, 11 * x0 + 13 * x1]),
-    #                  Shift([6 * x0 + 10 * x1 + 1, 7 * x0 + 11 * x1], [8 * x0 + 12 * x1 + 1, 9 * x0 + 13 * x1]),
-    #                  Shift([7 * x0 + 11 * x1 + 1, 8 * x0 + 12 * x1], [11 * x0 + 13 * x1 + 1, 12 * x0 + 14 * x1]),
-    #                  Flip([8 * x0 + 12 * x1 + 1, 11 * x0 + 13 * x1], [9 * x0 + 13 * x1 + 1, 12 * x0 + 14 * x1]),
-    #                  Shift([12 * x0 + 14 * x1 + 1, 13 * x0 + 16 * x1], [14 * x0 + 16 * x1 + 1, 15 * x0 + 18 * x1]),
-    #                  Shift([11 * x0 + 14 * x1 + 1, 12 * x0 + 14 * x1], [13 * x0 + 16 * x1 + 1, 14 * x0 + 16 * x1]),
-    #                  Flip([8 * x0 + 12 * x1 + 1, 11 * x0 + 14 * x1], [15 * x0 + 18 * x1 + 1, 18 * x0 + 20 * x1]),
-    #                  Shift([2 * x1 + 1, x0 + 4 * x1], [12 * x0 + 14 * x1 + 1, 13 * x0 + 16 * x1]),
-    #                  Flip([6 * x0 + 10 * x1 + 1, 7 * x0 + 10 * x1], [13 * x0 + 16 * x1 + 1, 14 * x0 + 16 * x1]),
-    #                  Shift([x0 + 4 * x1 + 1, 2 * x0 + 6 * x1], [7 * x0 + 10 * x1 + 1, 8 * x0 + 12 * x1]),
-    #                  Flip([2 * x1 + 1, x0 + 5 * x1], [17 * x0 + 17 * x1 + 1, 18 * x0 + 20 * x1]),
-    #                  Flip([9 * x0 + 13 * x1 + 1, 12 * x0 + 14 * x1], [14 * x0 + 16 * x1 + 1, 17 * x0 + 17 * x1]),
-    #                  Flip([x0 + 5 * x1 + 1, 2 * x0 + 6 * x1], [8 * x0 + 12 * x1 + 1, 9 * x0 + 13 * x1]),
-    #                  Shift([2 * x1 + 1, 2 * x0 + 6 * x1], [4 * x0 + 6 * x1 + 1, 6 * x0 + 10 * x1]),
-    #                  Flip([2 * x1 + 1, x0 + 5 * x1], [x0 + 3 * x1 + 1, 2 * x0 + 6 * x1]),
-    #                  Shift([2 * x1 + 1, x0 + 3 * x1], [20 * x0 + 20 * x1 + 1, 21 * x0 + 21 * x1]),
-    #                  Shift([x0 + 5 * x1 + 1, 2 * x0 + 6 * x1], [21 * x0 + 21 * x1 + 1, 22 * x0 + 22 * x1]),
-    #                  Flip([1, 2 * x1], [14 * x0 + 14 * x1 + 1, 14 * x0 + 16 * x1]),
-    #                  Flip([2 * x0 + 6 * x1 + 1, 4 * x0 + 8 * x1], [12 * x0 + 14 * x1 + 1, 14 * x0 + 16 * x1]),
-    #                  Shift([4 * x0 + 8 * x1 + 1, 6 * x0 + 10 * x1], [22 * x0 + 22 * x1 + 1, 24 * x0 + 24 * x1]),
-    #                  Flip([10 * x0 + 14 * x1 + 1, 12 * x0 + 14 * x1], [18 * x0 + 20 * x1 + 1, 20 * x0 + 20 * x1]),
-    #                  Flip([8 * x0 + 12 * x1 + 1, 10 * x0 + 14 * x1], [22 * x0 + 22 * x1 + 1, 24 * x0 + 24 * x1]),
-    #                  Shift([1, x1], [22 * x0 + 22 * x1 + 1, 22 * x0 + 23 * x1]),
-    #                  Flip([x1 + 1, 2 * x1], [20 * x0 + 20 * x1 + 1, 20 * x0 + 21 * x1]),
-    #                  Shift([20 * x0 + 21 * x1 + 1, 22 * x0 + 22 * x1], [22 * x0 + 23 * x1 + 1, 24 * x0 + 24 * x1]),
-    #                  Flip([2 * x1 + 1, 3 * x1], [24 * x0 + 23 * x1 + 1, 24 * x0 + 24 * x1]),
-    #                  Flip([16 * x0 + 19 * x1 + 1, 18 * x0 + 20 * x1], [22 * x0 + 22 * x1 + 1, 24 * x0 + 23 * x1]),
-    #                  Flip([3 * x1 + 1, 2 * x0 + 6 * x1], [14 * x0 + 16 * x1 + 1, 16 * x0 + 19 * x1]),
-    #                  Shift([20 * x0 + 20 * x1 + 1, 20 * x0 + 21 * x1], [22 * x0 + 22 * x1 + 1, 22 * x0 + 23 * x1]),
-    #                  Shift([10 * x0 + 13 * x1 + 1, 12 * x0 + 14 * x1], [20 * x0 + 21 * x1 + 1, 22 * x0 + 22 * x1]),
-    #                  Flip([8 * x0 + 12 * x1 + 1, 10 * x0 + 13 * x1], [22 * x0 + 23 * x1 + 1, 24 * x0 + 24 * x1]),
-    #                  Flip([7 * x0 + 10 * x1 + 1, 8 * x0 + 12 * x1], [12 * x0 + 14 * x1 + 1, 13 * x0 + 16 * x1]),
-    #                  Shift([13 * x0 + 16 * x1 + 1, 14 * x0 + 16 * x1], [19 * x0 + 20 * x1 + 1, 20 * x0 + 20 * x1]),
-    #                  Shift([6 * x0 + 10 * x1 + 1, 7 * x0 + 10 * x1], [18 * x0 + 20 * x1 + 1, 19 * x0 + 20 * x1]),
-    #                  Shift([1, 2 * x1], [2 * x0 + 4 * x1 + 1, 2 * x0 + 6 * x1]),
-    #                  Shift([2 * x1 + 1, 2 * x0 + 4 * x1], [12 * x0 + 14 * x1 + 1, 14 * x0 + 16 * x1])]
-
-    # test_interval = [1, 2*x0 + 2*x1]
-    # test_pairings = [Shift([x1 + 1, 2*x0], [3*x1 + 1, 2*x0 + 2*x1]),
-    #                  Flip([1, x0 + x1], [x0 + x1 + 1, 2*x0 + 2*x1])]
-
-    test_interval = [1, 2 * x0]
-    test_pairings = [Flip([1, x0], [x0 - 2 * x1 + 1, 2 * x0 - 2 * x1]),
-                     Shift([x1 + 1, 2 * x0 - 2 * x1], [3 * x1 + 1, 2 * x0])]
-
-
-    # test_PG = Pseudogroup(test_pairings, test_interval)
-    # print(test_PG.reduce())
-
 if __name__ == '__main__':
-    main()
+    pol1 = Polynomial(1, u=-1, v=2, w=3)
+    pol2 = Polynomial(u=2, v=4, x=5)
+    constant = Polynomial(10)
+    print(pol1 * constant)
 
-# probably the last pairing Flip([9 * x0 + 13 * x1 + 1, 12 * x0 + 14 * x1], [14 * x0 + 16 * x1 + 1, 17 * x0 + 17 * x1]) is causing some issue
-# the code runs forever for some reason when this pairing is used
-# the problem is reduced to
-# interval: [1, 11*x0 + 14*x1]
-# remaining pairings:
-# [9*x0 + 13*x1 + 1, 11*x0 + 12*x1] -> [9*x0 + 15*x1 + 1, 11*x0 + 14*x1]
-# [9*x0 + 12*x1 + 1, 10*x0 + 13*x1] ~> [10*x0 + 13*x1 + 1, 11*x0 + 14*x1]
-# [2*x0 + 6*x1 + 1, 5*x0 + 7*x1] -> [8*x0 + 12*x1 + 1, 11*x0 + 13*x1]
-# [2*x1 + 1, x0 + 5*x1] -> [8*x0 + 12*x1 + 1, 9*x0 + 15*x1]
-# [2*x1 + 1, x0 + 4*x1] -> [8*x0 + 12*x1 + 1, 9*x0 + 14*x1]
-# [2*x1 + 1, x0 + 3*x1] -> [8*x0 + 12*x1 + 1, 9*x0 + 13*x1]
-# [6*x0 + 10*x1 + 1, 7*x0 + 11*x1] -> [8*x0 + 12*x1 + 1, 9*x0 + 13*x1]
-# [7*x0 + 11*x1 + 1, 8*x0 + 12*x1] ~> [8*x0 + 12*x1 + 1, 9*x0 + 13*x1]
-# [6*x0 + 10*x1 + 1, 7*x0 + 10*x1] -> [8*x0 + 12*x1 + 1, 9*x0 + 12*x1]
-# [x0 + 4*x1 + 1, 2*x0 + 6*x1] -> [7*x0 + 10*x1 + 1, 8*x0 + 12*x1]
-# [x0 + 3*x1 + 1, 2*x0 + 6*x1] -> [5*x0 + 7*x1 + 1, 6*x0 + 10*x1]
-# [1, 2*x1] ~> [6*x0 + 8*x1 + 1, 6*x0 + 10*x1]
-# [1, 2*x1] -> [2*x1 + 1, 4*x1]
+
+
+
+
+

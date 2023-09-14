@@ -93,7 +93,7 @@ def main():
     vertex_surfaces = [face.vertex_surfaces for face in LW.maximal]
     F = vertex_surfaces[0][0]
     G = vertex_surfaces[0][1]
-    S = 3 * F + 4 * G
+    S = 2 * F + 4 * G
     SO = SurfacetoOrbit(S.surface)
     print(SO.pairings, SO.interval)
     print(SO.countcomponents())
