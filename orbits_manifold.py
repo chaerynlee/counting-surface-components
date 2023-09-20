@@ -72,21 +72,65 @@ class Polynomial:
         return Polynomial(sub_constant, **sub_poly)
 
     def __lt__(self, other):
-        if set(self.poly.keys()) in set(other.poly.keys()):
-            comparison = True
+        # IMPORTANT: this polynomial is a weak inequality by design
+        if set(self.poly.keys()) == set(other.poly.keys()):
+            # case where polynomials have same variables
+            comparison = []
+            if self.constant == other.constant:
+                comparison.append('S')
+            else:
+                comparison.append(self.constant < other.constant)
             for var in self.poly.keys():
-                if self.poly[var] > other.poly[var]:
-                    comparison = False
-                    break
-                return comparison
-        elif set(other.poly.keys()) in set(self.poly.keys()):
-            comparison = True
+                if self.poly[var] == other.poly[var]:
+                    comparison.append('S')
+                else:
+                    comparison.append(self.poly[var] < other.poly[var])
+            comparison = [e for e in comparison if e != 'S']
+            if comparison == None:
+                return 'equal'
+            elif set(comparison) == {True}:
+                return True
+            elif set(comparison) == {False}:
+                return False
+            else:
+                return 'unknown'
+
+        elif set(self.poly.keys()) < set(other.poly.keys()):
+            # case where the other polynomial has more variables than the given polynomial, can only return True or unknown
+            comparison = []
+            comparison_ne = []
+            nonexistent_var = set(other.poly.keys()).difference(self.poly.keys())
+            comparison.append(self.constant <= other.constant)
+            for var in self.poly.keys():
+                comparison.append(self.poly[var] <= other.poly[var])
+
+            for var in nonexistent_var:
+                comparison_ne.append(other.poly[var] >= 0)
+
+            if False not in comparison and False not in comparison_ne:
+                return True
+            else:
+                return 'unknown'
+
+        elif set(other.poly.keys()) < set(self.poly.keys()):
+            # case where the our polynomial has more variables than the other polynomial, can only return False or unknown
+            comparison = []
+            comparison_ne = []
+            nonexistent_var = set(self.poly.keys()).difference(other.poly.keys())
+            comparison.append(other.constant <= self.constant)
             for var in other.poly.keys():
-                if other.poly[var] > self.poly[var]:
-                    comparison = False
-                    break
-                return comparison
+                comparison.append(other.poly[var] <= self.poly[var])
+
+            for var in nonexistent_var:
+                comparison_ne.append(self.poly[var] >= 0)
+
+            if False not in comparison and False not in comparison_ne:
+                return False
+            else:
+                return 'unknown'
+
         else:
+            # when variables differ we cannot make a comparison
             return 'unknown'
 
     def __mul__(self, other):
@@ -130,8 +174,12 @@ class Interval:
     A finite subinterval of the integers.
     """
     def __init__(self, a, b):
-        self.start = min(a,b)
-        self.end = max(a,b)
+        if (a < b) == 'unknown' or (a < b) == 'equal':
+            self.start = a
+            self.end = b
+        else:
+            self.start = min(a, b)
+            self.end = max(a, b)
         self.width = self.end - self.start + Polynomial(1)
 
     def __repr__(self):
@@ -440,6 +488,8 @@ class Pseudogroup:
         end = max([p.range.end for p in self.pairings])
         if universe:
             universe = ToInterval(universe)
+            print(start < universe.start)
+            print(end > universe.end)
             if start < universe.start or end > universe.end:
                 raise ValueError("Universe must contain all domains and ranges.")
             self.universe = universe
@@ -586,11 +636,12 @@ class Pseudogroup:
 
 
 if __name__ == '__main__':
-    pol1 = Polynomial(1, u=-1, v=2, w=3)
-    pol2 = Polynomial(u=2, v=4, x=5)
-    constant = Polynomial(10)
-    print(pol1 * constant)
+    pol1 = Polynomial(1, u=6, v=10)
+    pol2 = Polynomial(u=6, v=10)
+    print(min(pol1, pol2))
+    print(max(pol1, pol2))
 
+    # unknown is considered as True
 
 
 

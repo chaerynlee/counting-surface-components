@@ -135,10 +135,11 @@ def main():
     test_list = LW_faces[0].vertex_surfaces
     test_regina_list = [S.surface for S in test_list]
     SO = SurfacetoOrbit(test_regina_list)
-    print(SO.interval)
+    print('interval:', SO.interval)
+    print('pairings:')
     for pairing in SO.pairings:
         print(pairing)
-    print(SO.countcomponents())
+    return SO.pairings[1]
 
 
     # f = open('example.pickle', 'wb')
@@ -146,4 +147,4 @@ def main():
     # f.close()
 
 if __name__ == '__main__':
-    main()
+    p = main()
