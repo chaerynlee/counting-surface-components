@@ -31,14 +31,25 @@ class Polynomial:
                 name += '-' + str(var) + ' + '
             else:
                 name += str(self.poly[var]) + str(var) + ' + '
-        if self.constant == 0:
-            name = name[:-3]
-        else:
-            name += str(self.constant)
+        name += str(self.constant)
         return name
 
     def __eq__(self, other):
-        return (self.poly, self.constant) == (other.poly, other.constant)
+        new_self_poly = dict()
+        for var in self.poly.keys():
+            new_self_poly[var] = self.poly[var]
+        for var in set(other.poly.keys()) - set(self.poly.keys()):
+            new_self_poly[var] = 0
+
+        new_other_poly = dict()
+        for var in other.poly.keys():
+            new_other_poly[var] = other.poly[var]
+        for var in set(self.poly.keys()) - set(other.poly.keys()):
+            new_other_poly[var] = 0
+
+        new_self = Polynomial(self.constant, **new_self_poly)
+        new_other = Polynomial(other.constant, **new_other_poly)
+        return (new_self.poly, new_self.constant) == (new_other.poly, new_other.constant)
 
     def __neg__(self):
         neg_constant = - self.constant
@@ -71,66 +82,101 @@ class Polynomial:
                 sub_poly[var] = -other.poly[var]
         return Polynomial(sub_constant, **sub_poly)
 
+    # def __lt__(self, other):
+    #     # IMPORTANT: this polynomial is a weak inequality by design
+    #     if set(self.poly.keys()) == set(other.poly.keys()):
+    #         # case where polynomials have same variables
+    #         comparison = []
+    #         if self.constant == other.constant:
+    #             comparison.append('S')
+    #         else:
+    #             comparison.append(self.constant < other.constant)
+    #         for var in self.poly.keys():
+    #             if self.poly[var] == other.poly[var]:
+    #                 comparison.append('S')
+    #             else:
+    #                 comparison.append(self.poly[var] < other.poly[var])
+    #         comparison = [e for e in comparison if e != 'S']
+    #         if comparison == None:
+    #             return 'equal'
+    #         elif set(comparison) == {True}:
+    #             return True
+    #         elif set(comparison) == {False}:
+    #             return False
+    #         else:
+    #             return 'unknown'
+    #
+    #     elif set(self.poly.keys()) < set(other.poly.keys()):
+    #         # case where the other polynomial has more variables than the given polynomial, can only return True or unknown
+    #         comparison = []
+    #         comparison_ne = []
+    #         nonexistent_var = set(other.poly.keys()).difference(self.poly.keys())
+    #         comparison.append(self.constant <= other.constant)
+    #         for var in self.poly.keys():
+    #             comparison.append(self.poly[var] <= other.poly[var])
+    #
+    #         for var in nonexistent_var:
+    #             comparison_ne.append(other.poly[var] >= 0)
+    #
+    #         if False not in comparison and False not in comparison_ne:
+    #             return True
+    #         else:
+    #             return 'unknown'
+    #
+    #     elif set(other.poly.keys()) < set(self.poly.keys()):
+    #         # case where the our polynomial has more variables than the other polynomial, can only return False or unknown
+    #         comparison = []
+    #         comparison_ne = []
+    #         nonexistent_var = set(self.poly.keys()).difference(other.poly.keys())
+    #         comparison.append(other.constant <= self.constant)
+    #         for var in other.poly.keys():
+    #             comparison.append(other.poly[var] <= self.poly[var])
+    #
+    #         for var in nonexistent_var:
+    #             comparison_ne.append(self.poly[var] >= 0)
+    #         if False not in comparison and False not in comparison_ne:
+    #             return False
+    #         else:
+    #             return 'unknown'
+    #
+    #     else:
+    #         # when variables differ we cannot make a comparison
+    #         return 'unknown'
+
     def __lt__(self, other):
-        # IMPORTANT: this polynomial is a weak inequality by design
-        if set(self.poly.keys()) == set(other.poly.keys()):
-            # case where polynomials have same variables
-            comparison = []
-            if self.constant == other.constant:
+        new_self_poly = dict()
+        for var in self.poly.keys():
+            new_self_poly[var] = self.poly[var]
+        for var in set(other.poly.keys()) - set(self.poly.keys()):
+            new_self_poly[var] = 0
+
+        new_other_poly = dict()
+        for var in other.poly.keys():
+            new_other_poly[var] = other.poly[var]
+        for var in set(self.poly.keys()) - set(other.poly.keys()):
+            new_other_poly[var] = 0
+
+        new_self = Polynomial(self.constant, **new_self_poly)
+        new_other = Polynomial(other.constant, **new_other_poly)
+
+        comparison = []
+        if new_self.constant == new_other.constant:
+            comparison.append('S')
+        else:
+            comparison.append(new_self.constant < new_other.constant)
+        for var in new_self.poly.keys():
+            if new_self.poly[var] == new_other.poly[var]:
                 comparison.append('S')
             else:
-                comparison.append(self.constant < other.constant)
-            for var in self.poly.keys():
-                if self.poly[var] == other.poly[var]:
-                    comparison.append('S')
-                else:
-                    comparison.append(self.poly[var] < other.poly[var])
-            comparison = [e for e in comparison if e != 'S']
-            if comparison == None:
-                return 'equal'
-            elif set(comparison) == {True}:
-                return True
-            elif set(comparison) == {False}:
-                return False
-            else:
-                return 'unknown'
-
-        elif set(self.poly.keys()) < set(other.poly.keys()):
-            # case where the other polynomial has more variables than the given polynomial, can only return True or unknown
-            comparison = []
-            comparison_ne = []
-            nonexistent_var = set(other.poly.keys()).difference(self.poly.keys())
-            comparison.append(self.constant <= other.constant)
-            for var in self.poly.keys():
-                comparison.append(self.poly[var] <= other.poly[var])
-
-            for var in nonexistent_var:
-                comparison_ne.append(other.poly[var] >= 0)
-
-            if False not in comparison and False not in comparison_ne:
-                return True
-            else:
-                return 'unknown'
-
-        elif set(other.poly.keys()) < set(self.poly.keys()):
-            # case where the our polynomial has more variables than the other polynomial, can only return False or unknown
-            comparison = []
-            comparison_ne = []
-            nonexistent_var = set(self.poly.keys()).difference(other.poly.keys())
-            comparison.append(other.constant <= self.constant)
-            for var in other.poly.keys():
-                comparison.append(other.poly[var] <= self.poly[var])
-
-            for var in nonexistent_var:
-                comparison_ne.append(self.poly[var] >= 0)
-
-            if False not in comparison and False not in comparison_ne:
-                return False
-            else:
-                return 'unknown'
-
+                comparison.append(new_self.poly[var] < new_other.poly[var])
+        comparison = [e for e in comparison if e != 'S']
+        if comparison == []:
+            return 'equal'
+        elif set(comparison) == {True}:
+            return True
+        elif set(comparison) == {False}:
+            return False
         else:
-            # when variables differ we cannot make a comparison
             return 'unknown'
 
     def __mul__(self, other):
@@ -486,15 +532,15 @@ class Pseudogroup:
         self.pairings = pairings
         start = min([p.domain.start for p in self.pairings])
         end = max([p.range.end for p in self.pairings])
-        if universe:
-            universe = ToInterval(universe)
-            print(start < universe.start)
-            print(end > universe.end)
-            if start < universe.start or end > universe.end:
-                raise ValueError("Universe must contain all domains and ranges.")
-            self.universe = universe
-        else:
-            self.universe = Interval(start, end)
+        # if universe:
+        #     universe = ToInterval(universe)
+        #     print(start < universe.start)
+        #     print(end > universe.end)
+        #     if start < universe.start or end > universe.end:
+        #         raise ValueError("Universe must contain all domains and ranges.")
+        #     self.universe = universe
+        # else:
+        #     self.universe = Interval(start, end)
 
     def __repr__(self):
         result = 'Pseudogroup on %s:\n'%str(self.universe)
@@ -636,10 +682,11 @@ class Pseudogroup:
 
 
 if __name__ == '__main__':
-    pol1 = Polynomial(1, u=6, v=10)
-    pol2 = Polynomial(u=6, v=10)
-    print(min(pol1, pol2))
-    print(max(pol1, pol2))
+    pol1 = Polynomial(0, u=0, v=0, x=0)
+    pol2 = Polynomial(0)
+    print(pol1)
+    print(pol2)
+    print(pol1 == pol2)
 
     # unknown is considered as True
 

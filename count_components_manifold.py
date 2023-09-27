@@ -139,8 +139,7 @@ def main():
     print('pairings:')
     for pairing in SO.pairings:
         print(pairing)
-    return SO.pairings[1]
-
+    SO.countcomponents()
 
     # f = open('example.pickle', 'wb')
     # pickle.dump([SO.interval, SO.pairings], f)
