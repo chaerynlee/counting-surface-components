@@ -1,13 +1,8 @@
-# need to define polynomials
-# (list of necessary features)
-# - repr
-# - max, min
-# - +, -, %, *
-# - ==, <,
-
 from __future__ import print_function
 from functools import total_ordering
 from sage.all import *
+import pickle
+
 Illegal = Exception("Illegal Operation")
 
 
@@ -35,6 +30,8 @@ class Polynomial:
         return name
 
     def __eq__(self, other):
+        if isinstance(other, int):
+            other = Polynomial(other)
         new_self_poly = dict()
         for var in self.poly.keys():
             new_self_poly[var] = self.poly[var]
@@ -59,6 +56,8 @@ class Polynomial:
         return Polynomial(neg_constant, **neg_poly)
 
     def __add__(self, other):
+        if isinstance(other, int):
+            other = Polynomial(other)
         sum_constant = self.constant + other.constant
         sum_poly = dict()
         for var in self.poly:
@@ -71,6 +70,8 @@ class Polynomial:
         return Polynomial(sum_constant, **sum_poly)
 
     def __sub__(self, other):
+        if isinstance(other, int):
+            other = Polynomial(other)
         sub_constant = self.constant - other.constant
         sub_poly = dict()
         for var in self.poly:
@@ -144,6 +145,8 @@ class Polynomial:
     #         return 'unknown'
 
     def __lt__(self, other):
+        if isinstance(other, int):
+            other = Polynomial(other)
         new_self_poly = dict()
         for var in self.poly.keys():
             new_self_poly[var] = self.poly[var]
@@ -178,6 +181,11 @@ class Polynomial:
             return False
         else:
             return 'unknown'
+
+    def __gt__(self, other):
+        if isinstance(other, int):
+            other = Polynomial(other)
+        return other < self
 
     def __mul__(self, other):
         # for now assume that we only need multiplication of integers not of polynomials themselves
@@ -214,7 +222,7 @@ def gcd(x, y):
         y = r
     return x
 
-@total_ordering
+
 class Interval:
     """
     A finite subinterval of the integers.
@@ -226,7 +234,8 @@ class Interval:
         else:
             self.start = min(a, b)
             self.end = max(a, b)
-        self.width = self.end - self.start + Polynomial(1)
+        self.width = self.end - self.start
+        # self.width = Polynomial(1) + self.end - self.start
 
     def __repr__(self):
         return '[{}, {}]'.format(self.start, self.end)
@@ -241,21 +250,58 @@ class Interval:
         """
         True if the Interval contains the integer or Interval argument.
         """
-        if isinstance(x, Polynomial) or isinstance(x, int):
-            return self.start <= x <= self.end
+        if isinstance(x, int):
+            x = Polynomial(x)
+
+        if isinstance(x, Polynomial):
+            comp_start = (self.start < x)
+            comp_end = (x < self.end)
+            if comp_start == 'equal' or comp_end == 'equal':
+                return True
+            elif comp_start == 'unknown' or comp_end == 'unknown':
+                return 'unknown'
+            elif comp_start == True and comp_end == True:
+                return True
+            else:
+                return False
+        elif isinstance(x, Interval):
+            comp_start = (self.start < x.start)
+            comp_end = (x.end < self.end)
+            if comp_start == 'unknown' or comp_end == 'unknown':
+                return 'unknown'
+            elif comp_start == 'equal' and comp_end == 'equal':
+                return 'equal'
+            elif comp_start == 'equal' and comp_end == True:
+                return True
+            elif comp_start == True and comp_end == 'equal':
+                return True
+            elif comp_start == True and comp_end == True:
+                return True
+            else:
+                return False
         else:
-            return self.start <= x.start and x.end <= self.end
+            raise TypeError(f'{x} is not a Polynomial or Interval')
 
     def __xor__(self, other):
         """
         Intersection of two intervals
         """
-        start = max(self.start, other.start)
-        end = min(self.end, other.end)
-        if end < start:
-            return None
+        if self.start.__lt__(other.start) == 'unknown':
+            return 'unknown'
         else:
+            start = max(self.start, other.start)
+
+        if self.end.__lt__(other.start) == 'unknown':
+            return 'unknown'
+        else:
+            end = min(self.end, other.end)
+
+        if start.__lt__(end) == 'unknown':
+            return 'unknown'
+        elif start.__lt__(end) == True:
             return Interval(start, end)
+        else:
+            return None
 
     def set_end(self, end):
         self.end = end
@@ -350,12 +396,6 @@ class Pairing:
                            self.domain.start, self.isometry.flip)
 
     def __repr__(self):
-        # <Used temporarily to print usable text>
-        # if self.isometry.flip:
-        #     return 'Flip(' + str(self.domain) + ', ' + str(self.range) + ')'
-        # else:
-        #     return 'Shift(' + str(self.domain) + ', ' + str(self.range) + ')'
-
         if self.isometry.flip:
             op = ' ~> '
         else:
@@ -413,15 +453,18 @@ class Pairing:
         if self.is_preserving:
             return self.isometry.shift == 0
         else:
-            return self.domain.width == 1 and self.domain == self.range
+            return self.domain.width == Polynomial(0) and self.domain == self.range
 
     def contract(self,I):
         """
         Adjust the Pairing to account for removal of a static interval.
         """
         I = ToInterval(I)
+        if I.__xor__(self.domain) == 'unknown' or I.__xor__(self.range) == 'unknown':
+            raise Illegal('Unknown whether the interval can be contracted')
         if I ^ self.domain or I ^ self.range:
             raise Illegal("Contraction interval is not static.")
+
         shift = Isometry(-I.width)
         if I.end < self.domain.start:
             return Pairing(shift(self.domain), shift * self.isometry * ~shift)
@@ -438,11 +481,25 @@ class Pairing:
         if self.is_preserving():
             return self
         else:
-            intersection = self.domain ^ self.range
-            if intersection:
-                middle = (self.domain.start + self.range.end - 1) // 2
-                domain = Interval(self.domain.start, middle)
-                return Pairing(domain, self.isometry)
+            domain_left = self.domain.start.__lt__(self.range.start)
+            if domain_left == True:
+                intersection = self.range.start.__lt__(self.domain.end)
+            elif domain_left == False:
+                intersection = self.domain.start.__lt__(self.range.end)
+            elif domain_left == 'unknown':
+                return self
+
+            if intersection == True:
+                if domain_left == True:
+                    middle = (self.domain.start + self.range.end) / Polynomial(2)
+                    domain = Interval(self.domain.start, middle)
+                    print('trimmed', self.__repr__(), 'to', (domain, self.isometry))
+                    return Pairing(domain, self.isometry)
+                elif domain_left == False:
+                    middle = (self.domain.end + self.range.start) / Polynomial(2)
+                    domain = Interval(middle, self.domain.end)
+                    print('trimmed', self.__repr__(), 'to', (domain, self.isometry))
+                    return Pairing(domain, self.isometry)
             else:
                 return self
 
@@ -530,17 +587,12 @@ class Pseudogroup:
     """
     def __init__(self, pairings, universe=None):
         self.pairings = pairings
-        start = min([p.domain.start for p in self.pairings])
-        end = max([p.range.end for p in self.pairings])
-        # if universe:
-        #     universe = ToInterval(universe)
-        #     print(start < universe.start)
-        #     print(end > universe.end)
-        #     if start < universe.start or end > universe.end:
-        #         raise ValueError("Universe must contain all domains and ranges.")
-        #     self.universe = universe
-        # else:
-        #     self.universe = Interval(start, end)
+        if isinstance(universe, Interval):
+            self.universe = universe
+        else:
+            start = min([p.domain.start for p in self.pairings])
+            end = max([p.range.end for p in self.pairings])
+            self.universe = Interval(start, end)
 
     def __repr__(self):
         result = 'Pseudogroup on %s:\n'%str(self.universe)
@@ -562,135 +614,318 @@ class Pseudogroup:
         """
         self.pairings = [p.trim() for p in self.pairings]
 
-    def static(self):
+    def static_left(self):
         """
-        Find a static interval.
+        Find a leftmost static interval if there is one.
         """
         if len(self.pairings) == 0:
             return self.universe
-        intervals = [p.domain for p in self.pairings]
-        intervals += [p.range for p in self.pairings]
-        intervals.sort()
-        I = intervals.pop(0)
-        start, end = I.start, I.end
-        if start > 1:
-            return Interval(1, start - 1)
-        for interval in intervals:
-            if end < interval.start - 1:
-                return Interval(end+1, interval.start-1)
-            end = max(end,interval.end)
-        if end < self.universe.end:
-            return Interval(end + 1, self.universe.end)
-        return None
 
-    def contract(self):
-        """
-        Remove all static intervals.  Return the total size.
-        """
-        result = 0
-        I = self.static()
-        while I:
-            result += I.width
-            if I.end != self.universe.end:
-                self.pairings =  [p.contract(I) for p in self.pairings]
-            self.universe.set_end(self.universe.end - I.width)
-            I = self.static()
-        return result
+        endpoints = []
+        endpoints_dup = []
+        for p in self.pairings:
+            endpoints_dup.append(p.domain.start)
+            endpoints_dup.append(p.domain.end)
+            endpoints_dup.append(p.range.start)
+            endpoints_dup.append(p.range.end)
+        for pt in endpoints_dup:
+            if pt not in endpoints:
+                endpoints.append(pt)
+        endpoints = sorted(endpoints)
 
-    def merge(self):
-        """
-        Merge periodic pairing whenever possible.
-        """
-        if len(self.pairings) < 2:
-             return
-        done=0
-        while not done:
-            periodics = [p for p in self.pairings if p.is_periodic()]
-            done=1
-            for p in periodics[:-1]:
-                for q in periodics[1+periodics.index(p):]:
-                    g = None
-                    try:
-                        g = p.merge(q)
-                    except: pass
-                    if g:
-                        self.pairings.remove(p)
-                        self.pairings.remove(q)
-                        self.pairings.append(g)
-                        done=0
-                        break
-
-    def transmit(self):
-        """
-        Use the largest Pairing to transmit others.
-        """
-        self.pairings.sort()
-        g = self.pairings[0]
-        self.pairings = [g] + [ g.transmit(p) for p in self.pairings[1:] ]
-
-    def truncate(self):
-        """
-        Truncate the largest pairing.
-        """
-        self.pairings.sort()
-        g = self.pairings.pop(0)
-        if len(self.pairings) > 0:
-            support_end = self.pairings[0].range.end
+        if Polynomial(0) in endpoints:
+            print('No leftmost static interval, at least one starting at 0')
+            return False
         else:
-            support_end = g.range.start - 1
-        if support_end < g.range.start:
-            self.universe.set_end(support_end)
-            return
-        if not g.is_preserving():
-            g.trim()
-        self.universe.set_end(support_end)
-        range = Interval(g.range.start, support_end)
-        domain = (~g.isometry)(range)
-        self.pairings = [Pairing(domain, g.isometry)] + self.pairings
+            print('0 not in any of the pairings')
+            # Find the smallest point in the given endpoints if any
+            for i in range(len(endpoints)):
+                comp = set()
+                for j in [x for x in range(len(endpoints)) if x != i]:
+                    comp.add(endpoints[i].__lt__(endpoints[j]))
+                if comp == {True}:
+                    print(f'static interval: [0, {endpoints[i]}]')
+                    return Interval(Polynomial(0), endpoints[i])
+            print('No pairing starting at 0 but unknown whether there is a static interval')
+            return False
+
+    def contract_left(self):
+        """
+        Remove leftmost static interval if there is one. Return the total size.
+        """
+        I = self.static_left()
+        if I:
+            result = I.width
+            self.universe.end = self.universe.end - I.end
+            shifted_pairings = []
+            for p in self.pairings:
+                if p.isometry.flip == 0:
+                    shifted_pairings.append(Pairing(Interval(p.domain.start - I.end, p.domain.end - I.end), p.isometry))
+                else:
+                    shifted_pairings.append(Pairing(Interval(p.domain.start - I.end, p.domain.end - I.end),
+                                                    p.isometry * Isometry(I.end * Polynomial(2), 0)))
+            self.pairings = shifted_pairings
+            print(f'Contracted by {I.end}')
+            return result
+        else:
+            return 0
+
+    def transmit_overlap(self):
+        """
+        Transmit parings whose domain and range are the same until there are no intervals that are the same
+        """
+        # TO-DO:
+        # -get all pairs of pairings (put this into a list of pairs?)
+        # -check ones that have overlapping domain/range and perform appropriate modification
+
+        pairings = [p for p in self.pairings]
+        for i, pairing in enumerate(pairings):
+            domain = pairing.domain
+            range = pairing.range
+            for other_pairing in (pairings[:i] + pairings[i+1:]):
+                if domain == other_pairing.domain:
+                    pairings.remove(pairing)
+                    pairings.remove(other_pairing)
+                    count_start, unknown_start = self.num_pairings_including(domain.start, pairings)
+                    count_end, unknown_end = self.num_pairings_including(domain.end, pairings)
+                    if [count_start, count_end, unknown_start, unknown_end] == [0, 0, 0, 0]:
+                        new_iso = other_pairing.isometry * ~pairing.isometry
+                        assert Interval(new_iso(range.start), new_iso(range.end)) == other_pairing.range
+                        print('one overlapping pairing transmitted')
+                        self.pairings = pairings
+                        return
+                elif domain == other_pairing.range:
+                    new_iso = ~other_pairing.isometry * ~pairing.isometry
+                    assert Interval(new_iso(range.start), new_iso(range.end)) == other_pairing.domain
+                    pairings.remove(pairing)
+                    pairings.append(Pairing(range, new_iso))
+                    print('one overlapping pairing transmitted')
+                    self.pairings = pairings
+                    return
+                elif range == other_pairing.domain:
+                        new_iso = other_pairing.isometry * pairing.isometry
+                        assert Interval(new_iso(domain.start), new_iso(domain.end)) == other_pairing.range
+                        pairings.remove(pairing)
+                        pairings.append(Pairing(domain, new_iso))
+                        print('one overlapping pairing transmitted')
+                        self.pairings = pairings
+                        return
+                elif range == other_pairing.range:
+                        new_iso = ~other_pairing.isometry * pairing.isometry
+                        assert Interval(new_iso(domain.start), new_iso(domain.end)) == other_pairing.domain
+                        pairings.remove(pairing)
+                        pairings.append(Pairing(domain, new_iso))
+                        print('one overlapping pairing transmitted')
+                        self.pairings = pairings
+                        return
+        print('no overlaps')
+        return
+
+    def transmit_inclusive(self):
+        """
+        Transmit parings whose domain and range lie entirely in the domain or range of another pairing
+        Is only performed to transmit to the right
+        """
+        pairings = [p for p in self.pairings]
+        for i, pairing in enumerate(pairings):
+            domain = pairing.domain
+            range = pairing.range
+            for other_pairing in (pairings[:i] + pairings[i+1:]):
+                if other_pairing.domain.__contains__(domain) == True:
+                    new_iso = other_pairing.isometry * ~pairing.isometry
+                    new_pairing = Pairing(range, new_iso)
+                    if pairing.domain.start.__lt__(new_pairing.range.start) == True:
+                        pairings.remove(pairing)
+                        pairings.append(new_pairing)
+                        print('one pairing transmitted')
+                        self.pairings = pairings
+                        return
+                elif other_pairing.range.__contains__(domain) == True:
+                    new_iso = ~other_pairing.isometry * ~pairing.isometry
+                    new_pairing = Pairing(range, new_iso)
+                    if pairing.domain.start.__lt__(new_pairing.range.start) == True:
+                        pairings.remove(pairing)
+                        pairings.append(new_pairing)
+                        print('one pairing transmitted')
+                        self.pairings = pairings
+                        return
+                elif other_pairing.domain.__contains__(range) == True:
+                    new_iso = other_pairing.isometry * pairing.isometry
+                    new_pairing = Pairing(domain, new_iso)
+                    if pairing.range.start.__lt__(new_pairing.range.start) == True:
+                        pairings.remove(pairing)
+                        pairings.append(new_pairing)
+                        print('one pairing transmitted')
+                        self.pairings = pairings
+                        return
+                elif other_pairing.range.__contains__(range) == True:
+                    new_iso = ~other_pairing.isometry * pairing.isometry
+                    new_pairing = Pairing(domain, new_iso)
+                    if pairing.range.start.__lt__(new_pairing.range.start) == True:
+                        pairings.remove(pairing)
+                        pairings.append(new_pairing)
+                        print('one pairing transmitted')
+                        self.pairings = pairings
+                        return
+        print('no subintervals included')
+        return
+
+    def truncate_left(self):
+        """
+        Truncate the leftmost interval if it is only contained in one pairing
+        """
+        pairings = [p for p in self.pairings]
+        first_int = []
+        first_pairing = []
+        for p in pairings:
+            if p.domain.start == Polynomial(0):
+                first_int.append(p.domain.end)
+                first_pairing.append(p)
+            elif p.range.start == Polynomial(0):
+                first_int.append(p.range.end)
+                first_pairing.append(p)
+
+        for i, endpoint in enumerate(first_int):
+            count, unknown = self.num_pairings_including(endpoint, pairings)
+            if count == 1 and unknown == 0:
+                self.universe.end = self.universe.end - endpoint
+                pairings.remove(first_pairing[i])
+                shifted_pairings = []
+                for p in pairings:
+                    if p.isometry.flip == 0:
+                        shifted_pairings.append(Pairing(Interval(p.domain.start - endpoint, p.domain.end - endpoint), p.isometry))
+                    else:
+                        shifted_pairings.append(Pairing(Interval(p.domain.start - endpoint, p.domain.end - endpoint),
+                                                        p.isometry * Isometry(endpoint * Polynomial(2), 0)))
+                print('truncated leftmost subinterval')
+                self.pairings = shifted_pairings
+                return
+        print('cannot truncate')
+        return
+
+    def num_pairings_including(self, x, list_pairings):
+        count = 0
+        unknown = 0
+        for p in list_pairings:
+            inc_domain = p.domain.__contains__(x)
+            inc_range = p.range.__contains__(x)
+            if inc_domain == True or inc_range == True:
+                count += 1
+            elif inc_domain == 'unknown' or inc_range == 'unknown':
+                unknown += 1
+        return count, unknown
 
     def simplify(self):
-        """
-        Do one cycle of the orbit counting reduction algorithm due
-        to Agol, Hass and Thurston.
-        """
+        print('universe')
+        print(self.universe)
+        print('pairings')
+        print(len(self.pairings))
+        for p in self.pairings:
+            print(p, p.isometry)
+
+        print()
+
+        count = self.contract_left()
+
         self.clean()
-        if len(self.pairings) == 0:
-            self.pairings = None
-            return self.universe.width
-        print("cleaned\n", self)
-        count = self.contract()
-        print("contracted\n", self)
+        print('removed trivial pairings')
+        for p in self.pairings:
+            print(p, p.isometry)
         self.trim()
-        print("trimmed\n", self)
-        self.merge()
-        print("merged\n", self)
-        self.transmit()
-        print("transmitted\n", self)
-        self.truncate()
-        print("truncated\n", self)
-        print('count = ', count)
+        print('trimmed necessary pairings')
+        for p in self.pairings:
+            print(p, p.isometry)
+
+        print()
+        # two variables used for polynomials in given example
+        # u = list(self.pairings[1].range.start.poly.keys())[0]
+        # v = list(self.pairings[1].range.start.poly.keys())[1]
+        # x = Polynomial(**{u: 10, v: 14})
+
+        # get rid of overlapping pairings with overlapping domain/range
+        # flag = True
+        # current_step = [p for p in self.pairings]
+        # while flag:
+        #     self.transmit_overlap()
+        #     next_step = [p for p in self.pairings]
+        #     flag = (next_step != current_step)
+        #     current_step = next_step
+        # print(len(self.pairings))
+        # for p in self.pairings:
+        #     print(p, p.isometry)
+
+        print()
+
+        # transmit pairings whose domain/range are contained in others
+        flag = True
+        current_step = [p for p in self.pairings]
+        while flag:
+            self.transmit_inclusive()
+            next_step = [p for p in self.pairings]
+            flag = (next_step != current_step)
+            current_step = next_step
+        print(len(self.pairings))
+        for p in self.pairings:
+            print(p, p.isometry)
+
+        print()
+
+        # # Take all start, endpoints of domains and ranges
+        # endpoints_dup = []
+        # endpoints = []
+        # for p in self.pairings:
+        #     endpoints_dup.append(p.domain.start)
+        #     endpoints_dup.append(p.domain.end)
+        #     endpoints_dup.append(p.range.start)
+        #     endpoints_dup.append(p.range.end)
+        # for pt in endpoints_dup:
+        #     if pt not in endpoints:
+        #         endpoints.append(pt)
+        # endpoints = sorted(endpoints)
+        # # for pt in endpoints:
+        # #     print(pt)
+        #
+        # # Check how many subintervals these points lie in to find an appropriate subinterval to transmit pairings into (not helpful)
+        # count_dict = dict()
+        # for pt in endpoints:
+        #     count, unknown = self.num_pairings_including(pt, self.pairings)
+        #     # print(pt, count, unknown)
+        #     if count in count_dict:
+        #         if pt not in count_dict[count]:
+        #             count_dict[count].append(pt)
+        #     else:
+        #         count_dict[count] = [pt]
+        # count_dict = dict(sorted(count_dict.items()))
+        # # for key in count_dict:
+        #     # print(key, count_dict[key])
+
+        # truncate leftmost pairing if possible
+        self.truncate_left()
+        print(len(self.pairings))
+        for p in self.pairings:
+            print(p, p.isometry)
+
+
+        # # Take all domains and ranges of pairings
+        # subint = []
+        # for p in self.pairings:
+        #     subint.append(p.domain)
+        #     subint.append(p.range)
+        #
+        # for i, interval in enumerate(subint):
+        #     for nextinterval in subint[i+1:]:
+        #         if nextinterval.__contains__(interval) == True:
+        #             print(interval, nextinterval)
+        #             print(type(nextinterval))
+
         return count
 
     def reduce(self):
         """
-        Reduce the pseudogroup to nothing. Return the number of orbits.
+        Reduce the pseudogroup to nothing.  Return the number of orbits.
         """
-        count = 0
-        while self.pairings and len(self.pairings) != 0:
+        count = Polynomial(0)
+        # while len(self.pairings) != 0:
+        for i in range(5):
             count += self.simplify()
         return count
-
-
-if __name__ == '__main__':
-    pol1 = Polynomial(0, u=0, v=0, x=0)
-    pol2 = Polynomial(0)
-    print(pol1)
-    print(pol2)
-    print(pol1 == pol2)
-
-    # unknown is considered as True
-
-
-
-
-

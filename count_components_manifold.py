@@ -47,7 +47,8 @@ class SurfacetoOrbit:
             total_count += p
 
         # single interval corresponding to all intersections with edges, starts at 1 not 0
-        self.interval = orbits_manifold.Interval(orbits_manifold.Polynomial(1), total_count)
+        self.interval = orbits_manifold.Interval(orbits_manifold.Polynomial(0), total_count)
+        # was self.interval = orbits_manifold.Interval(orbits_manifold.Polynomial(1), total_count)
 
         # list of integer lists where each list contains the start and end integers corresponding to the given edge
         # e.g. if edge0 has 3 intersections then we have [[1, 3], [...], ...]
@@ -59,8 +60,10 @@ class SurfacetoOrbit:
                 exclude_last = orbits_manifold.Polynomial(0)
                 for p in edge_weights_int[:i]:
                     exclude_last += p
-                start = exclude_last + orbits_manifold.Polynomial(1)
-                end = start + edge_weights_int[i] - orbits_manifold.Polynomial(1)
+                start = exclude_last
+                # start = exclude_last + orbits_manifold.Polynomial(1)
+                end = start + edge_weights_int[i]
+                # end = start + edge_weights_int[i] - orbits_manifold.Polynomial(1)
                 self.interval_divided.append([start, end])
 
     def oriented_edges(self, triangulation):
@@ -96,13 +99,17 @@ class SurfacetoOrbit:
                     domain_ori = ori_edges[domain_edge][1]
                     range_ori = ori_edges[range_edge][1]
                     if domain_ori == 1:
-                        domain_interval = orbits_manifold.Interval(self.interval_divided[domain_edge][1] - width + orbits_manifold.Polynomial(1), self.interval_divided[domain_edge][1])
+                        domain_interval = orbits_manifold.Interval(self.interval_divided[domain_edge][1] - width, self.interval_divided[domain_edge][1])
+                        # domain_interval = orbits_manifold.Interval(self.interval_divided[domain_edge][1] - width + orbits_manifold.Polynomial(1), self.interval_divided[domain_edge][1])
                     elif domain_ori == -1:
-                        domain_interval = orbits_manifold.Interval(self.interval_divided[domain_edge][0], self.interval_divided[domain_edge][0] + width - orbits_manifold.Polynomial(1))
+                        domain_interval = orbits_manifold.Interval(self.interval_divided[domain_edge][0], self.interval_divided[domain_edge][0] + width)
+                        # domain_interval = orbits_manifold.Interval(self.interval_divided[domain_edge][0], self.interval_divided[domain_edge][0] + width - orbits_manifold.Polynomial(1))
                     if range_ori == 1:
-                        range_interval = orbits_manifold.Interval(self.interval_divided[range_edge][0], self.interval_divided[range_edge][0] + width - orbits_manifold.Polynomial(1))
+                        range_interval = orbits_manifold.Interval(self.interval_divided[range_edge][0], self.interval_divided[range_edge][0] + width)
+                        # range_interval = orbits_manifold.Interval(self.interval_divided[range_edge][0], self.interval_divided[range_edge][0] + width - orbits_manifold.Polynomial(1))
                     elif range_ori == -1:
-                        range_interval = orbits_manifold.Interval(self.interval_divided[range_edge][1] - width + orbits_manifold.Polynomial(1), self.interval_divided[range_edge][1])
+                        range_interval = orbits_manifold.Interval(self.interval_divided[range_edge][1] - width, self.interval_divided[range_edge][1])
+                        # range_interval = orbits_manifold.Interval(self.interval_divided[range_edge][1] - width + orbits_manifold.Polynomial(1), self.interval_divided[range_edge][1])
                     if domain_ori == range_ori:
                         self.pairings.append(orbits_manifold.Flip(domain_interval, range_interval))
                     else:
@@ -128,10 +135,12 @@ class SurfaceComponentCount:
 def main():
     import snappy, regina
     import nscomplex
-    M = snappy.Manifold('K13n586')
+    M = snappy.Manifold('s783')
+    # M = snappy.Manifold('K13n586')
     CS = ConnectedSurfaces(M, -6)
     LW = CS.essential_faces_of_normal_polytope()
     LW_faces = LW.maximal
+    print(LW_faces)
     test_list = LW_faces[0].vertex_surfaces
     test_regina_list = [S.surface for S in test_list]
     SO = SurfacetoOrbit(test_regina_list)
@@ -139,11 +148,10 @@ def main():
     print('pairings:')
     for pairing in SO.pairings:
         print(pairing)
-    SO.countcomponents()
 
-    # f = open('example.pickle', 'wb')
-    # pickle.dump([SO.interval, SO.pairings], f)
-    # f.close()
+    f = open('example_simple.pickle', 'wb')
+    pickle.dump([SO.interval, SO.pairings], f)
+    f.close()
 
 if __name__ == '__main__':
     p = main()
