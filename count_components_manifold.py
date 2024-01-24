@@ -4,6 +4,8 @@ from count_components import *
 from nscomplex import *
 import orbits_manifold
 import pickle
+import networkx as nx
+import matplotlib.pyplot as plt
 
 class SurfacetoOrbit:
     '''
@@ -23,6 +25,8 @@ class SurfacetoOrbit:
         self.pairings = []
         self.interval = None
         self.interval_divided = []
+        self.edge_connection = nx.Graph()
+        self.edge_connection.add_nodes_from(range(self.triangulation.countEdges()))
         self._find_intersections1d()
         self._find_intersections2d()
 
@@ -96,6 +100,7 @@ class SurfacetoOrbit:
                 else:
                     domain_edge = tri.edge((i + 1) % 3).index()
                     range_edge = tri.edge((i + 2) % 3).index()
+                    self.edge_connection.add_edge(domain_edge, range_edge)
                     domain_ori = ori_edges[domain_edge][1]
                     range_ori = ori_edges[range_edge][1]
                     if domain_ori == 1:
@@ -111,9 +116,9 @@ class SurfacetoOrbit:
                         range_interval = orbits_manifold.Interval(self.interval_divided[range_edge][1] - width, self.interval_divided[range_edge][1])
                         # range_interval = orbits_manifold.Interval(self.interval_divided[range_edge][1] - width + orbits_manifold.Polynomial(1), self.interval_divided[range_edge][1])
                     if domain_ori == range_ori:
-                        self.pairings.append(orbits_manifold.Flip(domain_interval, range_interval))
+                        self.pairings.append(orbits_manifold.Flip(domain_interval, range_interval, domain_edge, range_edge))
                     else:
-                        self.pairings.append(orbits_manifold.Shift(domain_interval, range_interval))
+                        self.pairings.append(orbits_manifold.Shift(domain_interval, range_interval, domain_edge, range_edge))
 
     def countcomponents(self):
         G = orbits_manifold.Pseudogroup(self.pairings, self.interval)
@@ -135,23 +140,35 @@ class SurfaceComponentCount:
 def main():
     import snappy, regina
     import nscomplex
-    M = snappy.Manifold('s783')
-    # M = snappy.Manifold('K13n586')
+    # M = snappy.Manifold('s783')
+    M = snappy.Manifold('K13n586_nice.tri')
     CS = ConnectedSurfaces(M, -6)
     LW = CS.essential_faces_of_normal_polytope()
     LW_faces = LW.maximal
-    print(LW_faces)
     test_list = LW_faces[0].vertex_surfaces
     test_regina_list = [S.surface for S in test_list]
     SO = SurfacetoOrbit(test_regina_list)
     print('interval:', SO.interval)
+
+    print('divided interval:')
+    for i, subint in enumerate(SO.interval_divided):
+        print(i, subint, subint[1] - subint[0])
+
+    print('edge connection:', SO.edge_connection.edges)
+    nx.draw(SO.edge_connection, with_labels=True)
+    plt.savefig('edgeconnection.png', dpi=300)
+    plt.close()
+
     print('pairings:')
     for pairing in SO.pairings:
         print(pairing)
 
-    f = open('example_simple.pickle', 'wb')
-    pickle.dump([SO.interval, SO.pairings], f)
+    f = open('example.pickle', 'wb')
+    pickle.dump([SO.interval, SO.interval_divided, SO.pairings], f)
     f.close()
+
+    # Other examples: our manifold has the same a_g(M) pattern as the second one in the table in Section8 of DGR
+    # look in very_large_combined.csv in nscomplex for manifolds with the same a_g(M) pattern
 
 if __name__ == '__main__':
     p = main()
