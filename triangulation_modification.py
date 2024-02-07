@@ -81,4 +81,4 @@ def print_edge_orientations():
 
 
 if __name__ == '__main__':
-    test_tri()
+    print_edge_orientations()

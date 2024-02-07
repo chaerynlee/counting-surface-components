@@ -652,6 +652,9 @@ class Pseudogroup:
         Get rid of trivial Pairings.
         """
         self.pairings = [p.switch_domain_range() for p in self.pairings if not p.is_trivial()]
+        remove_dup = []
+        [remove_dup.append(p) for p in self.pairings if p not in remove_dup]
+        self.pairings = remove_dup
 
     def trim(self):
         """
@@ -664,6 +667,8 @@ class Pseudogroup:
         For the given interval, find a pairing that has that it as its domain or range.
         If no such pairing exists return False.
         """
+        if not isinstance(interval, Interval):
+            return False
         for pairing in self.pairings:
             if pairing.domain == interval:
                 return pairing
@@ -676,25 +681,40 @@ class Pseudogroup:
 
         shifted_pairings = []
         for p in self.pairings:
-            print('original pairing', p)
+            # print('original pairing', p)
             assert p.domain_index <= p.range_index
             if edge_index < p.domain_index:
                 new_domain = Interval(p.domain.start - interval.width, p.domain.end - interval.width)
-                print('original iso', p.isometry)
-                print('changed to', Pairing(new_domain, p.isometry, p.domain_index, p.range_index))
-                shifted_pairings.append(Pairing(new_domain, p.isometry, p.domain_index, p.range_index))
+                # possible fix?
+                if p.isometry.flip:
+                    new_iso = p.isometry * Isometry(interval.width * Polynomial(2), 0)
+                    # print('original iso', p.isometry)
+                    # print('changed to', Pairing(new_domain, new_iso, p.domain_index, p.range_index))
+                    shifted_pairings.append(Pairing(new_domain, new_iso, p.domain_index, p.range_index))
+                else:
+                    shifted_pairings.append(Pairing(new_domain, p.isometry, p.domain_index, p.range_index))
+                # shifted_pairings.append(Pairing(new_domain, p.isometry, p.domain_index, p.range_index))
             elif p.domain_index < edge_index < p.range_index:
                 new_iso = Isometry(-interval.width, 0) * p.isometry
-                print('new iso', new_iso)
-                print('changed to', Pairing(p.domain, new_iso, p.domain_index, p.range_index))
+                # print('new iso', new_iso)
+                # print('changed to', Pairing(p.domain, new_iso, p.domain_index, p.range_index))
                 shifted_pairings.append(Pairing(p.domain, new_iso, p.domain_index, p.range_index))
             else:
                 shifted_pairings.append(p)
-            print()
         self.pairings = shifted_pairings
 
         new_end = self.universe.end - interval.width
         self.universe = Interval(Polynomial(0), new_end)
+
+        for i in range(len(self.divided_universe)):
+            if i < edge_index:
+                continue
+            elif i == edge_index:
+                self.divided_universe[edge_index] = []
+            else:
+                iso = Isometry(-interval.width, 0)
+                new_interval = iso(self.divided_universe[i])
+                self.divided_universe[i] = new_interval
 
     def static_left(self):
         """
@@ -1003,22 +1023,19 @@ class Pseudogroup:
         return count
 
     def simplify2(self):
-        # TO-DO (1/15)
-        # - Plan: follow work in original paper rather than try and use AHT
-        # - in count_components_manifold.py record connections between edges in triangulation
-        # - using this find candidate edges to transmit pairings into (e1, e8 of example in paper)
-
-        # UPDATE (1/18)
+        # TO-DO (1/18)
         # - examine triangulation_modification.py (copied from file shared by Nathan) to find how to get the triangulation used in
         #   K13n586 paper, the default triangulation is different from the one previously used and gave completely different
         #   gluing information
         # - may be important to find a certain triangulation for manifolds we wish to run code on in future
 
-        # TO-DO (1/23)
-        # - 'Isometry' does not behave as a function but rather a group action on the dihedral group, when translating flips it translates
-        #   the range in the opposite direction because of this
-        # - fix peel_edge in the flip case (maybe modify pairing depending on whether it is a flip or shift by changing the order of the
-        #   isometry applied?)
+        # TO-DO (2/6)
+        # - our goal is to identify the specific gcd picture in our surface: one pairing that identifes two halves of the universe and
+        # two pairings whose union make up the universe (all pairings are ori-reversing)
+        # - throw out as many subintervals in the divided universe as long as they are included in some orbit (in our example all of edge 8 is
+        # covered by domains and ranges of some pairings hence it can be ignored)
+        # - things to consider when simplifying: trim ori-rev pairings, combine pairings of the same isometry but with disjoint domain/range,
+        # remove any pairings that have same isometry but smaller domain/range (i.e. pairings included in others)
 
         print('universe:', self.universe)
         print('divided universe:', self.divided_universe)
@@ -1060,14 +1077,20 @@ class Pseudogroup:
         for i in range(10):
             if i != 1 and i != 8:
                 self.peel_edge(i)
+        self.clean()
+        self.pairings.sort()
 
         print()
-        print('peeled pairings')
+        print('universe:', self.universe)
+        print('divided universe:', self.divided_universe)
+        print('peeled pairings:', len(self.pairings))
         for p in self.pairings:
-            print(p)
+            print(p.domain.width, '/', p.isometry, '/', p)
 
         # for i, I in enumerate(self.divided_universe):
-        #     print(i, self.identify_edge_containing(I))
+        #     print(i, I, self.identify_edge_containing(I))
+
+
 
 
         # endpoints_dup = []
