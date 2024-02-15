@@ -241,8 +241,10 @@ class Interval:
         return '[{}, {}]'.format(self.start, self.end)
 
     def __eq__(self, other):
-        return (self.start, self.end) == (other.start, other.end)
-
+        if (self.start).__lt__(other.start) == 'equal' and (self.end).__lt__(other.end) == 'equal':
+            return True
+        else:
+            return False
     def __lt__(self, other):
         return (self.start, self.end) < (other.start, other.end)
 
@@ -310,6 +312,29 @@ class Interval:
     def set_start(self, start):
         self.start = start
         self.width = self.end - self.start + 1
+
+    def union(self, other):
+        """
+        Attempted to use this for find_significant_edges but turns out to be unhelpful.
+
+        Takes the union of self with other.
+        Can only be performed in the case where self.start is smaller than other.start and where the two intervals intersect.
+        Returns False if the union cannot be performed.
+        """
+        if (self.start).__lt__(other.start) == True or (self.start).__lt__(other.start) == 'equal':
+            start = self.start
+        else:
+            return False
+
+        if (self.end).__lt__(other.start) == True or (self.end).__lt__(other.start) == 'unknown':
+            return False
+
+        if (self.end).__lt__(other.end) == True or (self.end).__lt__(other.end) == 'equal':
+            end = other.end
+            return Interval(start, end)
+        else:
+            end = self.end
+            return Interval(start, end)
 
 def ToInterval(x):
     """
@@ -590,8 +615,10 @@ class Pairing:
     def switch_domain_range(self):
         if self.domain_index > self.range_index:
             return Pairing(self.range, ~self.isometry, self.range_index, self.domain_index)
-        else:
-            return self
+        elif self.domain_index == self.range_index:
+            if (self.range.start).__lt__(self.domain.start) == True:
+                return Pairing(self.range, ~self.isometry, self.range_index, self.domain_index)
+        return self
 
 
 def Shift(domain, range, domain_index, range_index):
@@ -651,7 +678,9 @@ class Pseudogroup:
 
     def clean(self):
         """
-        Make sure domain_index < range_index for all pairings and get rid of trivial pairings.
+        Make sure domain_index < range_index for all pairings,
+        for pairings whose domain_index = range_index make sure the domain is to the left of the range,
+        and remove duplicate pairings and trivial pairings.
         """
         self.pairings = [p.switch_domain_range() for p in self.pairings if not p.is_trivial()]
         remove_dup = []
@@ -721,6 +750,50 @@ class Pseudogroup:
                 iso = Isometry(-interval.width, 0)
                 new_interval = iso(self.divided_universe[i])
                 self.divided_universe[i] = new_interval
+
+    def find_redundant_edges(self):
+        """
+        For each subinterval, checks if it is redundant i.e. if there exist pairings from this subinterval to another whose domains/ranges
+        cover the entire subinterval (note that an empty subinterval is naturally redundant).
+        Returns a list of edge indices corresponding to redundant edges.
+        This check is not 100% accurate by design, it only checks to see if the subinterval can be split in two pieces at a certain endpoint.
+        """
+        redundant_edges = []
+        for i in range(len(self.divided_universe)):
+            subinterval = self.divided_universe[i]
+            if not isinstance(subinterval, Interval):
+                redundant_edges.append(i)
+            else:
+                intervals_on_edge = []
+                for p in self.pairings:
+                    if p.domain_index == i and p.range_index != i:
+                        intervals_on_edge.append(p.domain)
+                    elif p.domain_index != i and p.range_index == i:
+                        intervals_on_edge.append(p.range)
+                intervals_on_edge.sort(key=lambda I: I.start)
+
+                endpoints = []
+                for I in intervals_on_edge:
+                    if I.start not in endpoints: endpoints.append(I.start)
+                    if I.end not in endpoints: endpoints.append(I.end)
+
+                for pt in endpoints:
+                    if Interval(subinterval.start, pt) in intervals_on_edge and Interval(pt, subinterval.end) in intervals_on_edge:
+                        redundant_edges.append(i)
+                        break
+
+                # Tried to take the union of intervals in order but didn't work
+                # U = intervals_on_edge.pop(0)
+                # while U:
+                #     I = intervals_on_edge.pop(0)
+                #     U = U.union(I)
+                #
+                # if U:
+                #    if subinterval != U:
+                #        significant_edges.append(i)
+                # else:
+                #     significant_edges.append(i)
+        return redundant_edges
 
     def gcd_candidates_type1(self, edge_index):
         """
@@ -1074,7 +1147,7 @@ class Pseudogroup:
 
         return count
 
-    def simplify2(self):
+    def simplify_transmit(self):
         # TO-DO (1/18)
         # - examine triangulation_modification.py (copied from file shared by Nathan) to find how to get the triangulation used in
         #   K13n586 paper, the default triangulation is different from the one previously used and gave completely different
@@ -1082,16 +1155,11 @@ class Pseudogroup:
         # - may be important to find a certain triangulation for manifolds we wish to run code on in future
 
         # TO-DO (2/6)
-        # - our goal is to identify the specific gcd picture in our surface: one pairing that identifes two halves of the universe and
-        # two pairings whose union make up the universe (all pairings are ori-reversing)
-        # - throw out as many subintervals in the divided universe as long as they are included in some orbit (in our example all of edge 8 is
-        # covered by domains and ranges of some pairings hence it can be ignored)
-        # - things to consider when simplifying: trim ori-rev pairings, combine pairings of the same isometry but with disjoint domain/range,
+        # - things to consider when simplifying: combine pairings of the same isometry but with disjoint domain/range,
         # remove any pairings that have same isometry but smaller domain/range (i.e. pairings included in others)
 
         # TO-DO (2/13)
-        # - need a better clean function that gets rid of duplicate functions (domain - range, range - domain)
-        # - write something for STEP1, we have completed STEP2
+        # - wrote code to find any redundant edges, may fail in some cases
         # - run code on other examples to see where things go wrong and where we need to refine our functions
 
         print('universe:', self.universe)
@@ -1106,8 +1174,10 @@ class Pseudogroup:
             print(i, I.width, I, self.identify_edge_containing(I))
 
         # transmit pairings on edges where there exists a pairing sending the entire edge to another
+        transmitted_edges = []
         for i, I in enumerate(self.divided_universe):
             if self.identify_edge_containing(I):
+                transmitted_edges.append(i)
                 base_pairing = self.identify_edge_containing(I)
 
                 pairings_on_edge = []
@@ -1127,38 +1197,30 @@ class Pseudogroup:
                 self.clean()
 
         print()
-        # print('pairings:', len(self.pairings))
-        # for p in self.pairings:
-        #     print(p)
 
-        for i in range(10):
-            if i != 1 and i != 8:
+        for i in range(len(self.divided_universe)):
+            if i in transmitted_edges:
                 self.peel_edge(i)
         self.clean()
         self.pairings.sort()
 
-        print()
         print('universe:', self.universe)
         print('divided universe:', self.divided_universe)
         print('peeled pairings:', len(self.pairings))
         for p in self.pairings:
             print(p.domain.width, '/', p.isometry, '/', p)
 
-        print()
+    def find_candidates(self):
         self.trim()
         self.clean()
-        print('candidate1', self.gcd_candidates_type1(1))
-        print('candidate2')
-        for pairs in self.gcd_candidates_type2(1):
-            print(pairs)
-
-
-        # STEP1: need code that identifies any edges that can be removed (e.g. edge8)
-        # will involve checking subintervals that lie on this edge and checking the union of these subintervals make up the entire edge
-
-        # STEP2 for a single subinterval check for our pattern
-        # first find candidates
-
+        redundant_edges = self.find_redundant_edges()
+        print('redundant_edges:', redundant_edges)
+        for i in range(len(self.divided_universe)):
+            if i not in redundant_edges:
+                print('candidate1', self.gcd_candidates_type1(i))
+                print('candidate2')
+                for pairs in self.gcd_candidates_type2(i):
+                    print(pairs)
 
 
 
@@ -1194,11 +1256,13 @@ class Pseudogroup:
         #     # print(key, count_dict[key])
 
     def reduce(self):
-        """
-        Reduce the pseudogroup to nothing.  Return the number of orbits.
-        """
-        count = Polynomial(0)
-        while len(self.pairings) != 0:
-            for i in range(5):
-                count += self.simplify()
-            return count
+        transmission_possible = True
+        while transmission_possible:
+            self.simplify_transmit()
+            transmission_possible = False
+            for I in self.divided_universe:
+                if self.identify_edge_containing(I) != False:
+                    possible_transmissions = True
+                    break
+        print()
+        self.find_candidates()
