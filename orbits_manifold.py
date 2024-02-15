@@ -490,18 +490,20 @@ class Pairing:
                 intersection = self.domain.start.__lt__(self.range.end)
             elif domain_left == 'unknown':
                 return self
+            elif domain_left == 'equal':
+                intersection = True
 
             if intersection == True:
-                if domain_left == True:
+                if domain_left == True or domain_left == 'equal':
                     middle = (self.domain.start + self.range.end) / Polynomial(2)
                     domain = Interval(self.domain.start, middle)
-                    print('trimmed', self.__repr__(), 'to', (domain, self.isometry))
-                    return Pairing(domain, self.isometry)
+                    # print('trimmed', self.__repr__(), 'to', Pairing(domain, self.isometry, self.domain_index, self.range_index))
+                    return Pairing(domain, self.isometry, self.domain_index, self.range_index)
                 elif domain_left == False:
                     middle = (self.domain.end + self.range.start) / Polynomial(2)
                     domain = Interval(middle, self.domain.end)
-                    print('trimmed', self.__repr__(), 'to', (domain, self.isometry))
-                    return Pairing(domain, self.isometry)
+                    # print('trimmed', self.__repr__(), 'to', Pairing(domain, self.isometry, self.domain_index, self.range_index))
+                    return Pairing(domain, self.isometry, self.domain_index, self.range_index)
             else:
                 return self
 
@@ -649,7 +651,7 @@ class Pseudogroup:
 
     def clean(self):
         """
-        Get rid of trivial Pairings.
+        Make sure domain_index < range_index for all pairings and get rid of trivial pairings.
         """
         self.pairings = [p.switch_domain_range() for p in self.pairings if not p.is_trivial()]
         remove_dup = []
@@ -677,6 +679,10 @@ class Pseudogroup:
         return False
 
     def peel_edge(self, edge_index):
+        """
+        Removes subinterval of given edge index from divided universe (makes it into an empty interval, the corresponding edge index is maintained)
+        Translates parings to accommodate for this removal.
+        """
         interval = self.divided_universe[edge_index]
 
         shifted_pairings = []
@@ -716,6 +722,52 @@ class Pseudogroup:
                 new_interval = iso(self.divided_universe[i])
                 self.divided_universe[i] = new_interval
 
+    def gcd_candidates_type1(self, edge_index):
+        """
+        Finds an orientation reversing pairing that identifies the two halves of the subinterval at given index.
+        Returns False if no such pairing exists.
+        """
+        subinterval = self.divided_universe[edge_index]
+        pairings_on_edge = [p for p in self.pairings if p.domain_index == edge_index and p.range_index == edge_index and not p.is_preserving()]
+        for p in pairings_on_edge:
+            endpoints = [p.domain.start,  p.domain.end, p.range.start, p.range.end]
+            if subinterval.start in endpoints and subinterval.end in endpoints:
+                return p
+        return False
+
+    def gcd_candidates_type2(self, edge_index):
+        """
+        Finds pairs of orientation reversing pairings whose domains and ranges are all disjoint and union make up the entire subinterval.
+        Returns False if no such pairs of pairings exist.
+        """
+        subinterval = self.divided_universe[edge_index]
+        pairings_on_edge = []
+        for p in self.pairings:
+            if p.domain_index == edge_index and p.range_index == edge_index and not p.is_preserving():
+                if (p.domain.end).__lt__(p.range.start) == 'equal' or (p.domain.start).__lt__(p.range.end) == 'equal':
+                    pairings_on_edge.append(p)
+
+        candidates = []
+        for i, p in enumerate(pairings_on_edge):
+            endpoints_p = [p.domain.start, p.domain.end, p.range.start, p.range.end]
+            p_start = min(endpoints_p)
+            p_end = max(endpoints_p)
+            for q in pairings_on_edge[i+1:]:
+                endpoints_q = [q.domain.start, q.domain.end, q.range.start, q.range.end]
+                q_start = min(endpoints_q)
+                q_end = max(endpoints_q)
+                if p_end.__lt__(q_start) == 'equal' and p_start.__lt__(subinterval.start) == 'equal' and q_end.__lt__(subinterval.end) == 'equal':
+                    candidates.append((p, q))
+                elif q_end.__lt__(p_start) == 'equal' and q_start.__lt__(subinterval.start) == 'equal' and p_end.__lt__(subinterval.end) == 'equal':
+                    candidates.append((p, q))
+
+        if len(candidates) == 0:
+            return False
+        else:
+            return candidates
+
+
+    # All functions that follow are ones used in the old version of simplify
     def static_left(self):
         """
         Find a leftmost static interval if there is one.
@@ -1037,6 +1089,11 @@ class Pseudogroup:
         # - things to consider when simplifying: trim ori-rev pairings, combine pairings of the same isometry but with disjoint domain/range,
         # remove any pairings that have same isometry but smaller domain/range (i.e. pairings included in others)
 
+        # TO-DO (2/13)
+        # - need a better clean function that gets rid of duplicate functions (domain - range, range - domain)
+        # - write something for STEP1, we have completed STEP2
+        # - run code on other examples to see where things go wrong and where we need to refine our functions
+
         print('universe:', self.universe)
         print('divided universe:', self.divided_universe)
         print('pairings:', len(self.pairings))
@@ -1087,8 +1144,20 @@ class Pseudogroup:
         for p in self.pairings:
             print(p.domain.width, '/', p.isometry, '/', p)
 
-        # for i, I in enumerate(self.divided_universe):
-        #     print(i, I, self.identify_edge_containing(I))
+        print()
+        self.trim()
+        self.clean()
+        print('candidate1', self.gcd_candidates_type1(1))
+        print('candidate2')
+        for pairs in self.gcd_candidates_type2(1):
+            print(pairs)
+
+
+        # STEP1: need code that identifies any edges that can be removed (e.g. edge8)
+        # will involve checking subintervals that lie on this edge and checking the union of these subintervals make up the entire edge
+
+        # STEP2 for a single subinterval check for our pattern
+        # first find candidates
 
 
 
