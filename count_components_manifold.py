@@ -1,7 +1,7 @@
 import snappy
 import regina
 from count_components import *
-from nscomplex import *
+from nscomplex_updated import *
 import orbits_manifold
 import pickle
 import networkx as nx

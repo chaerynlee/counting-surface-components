@@ -5,7 +5,7 @@ import collections
 from . import regina_util
 
 # In order to build the 1-skeleton of a Regina normal surface, we need
-# need to extract the information about the 2-skeleton of the
+# to extract the information about the 2-skeleton of the
 # triangulation of the ambient 3-manifold.
 
 class Face(object):
