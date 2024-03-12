@@ -1,6 +1,6 @@
 import snappy
 import regina
-from nscomplex import *
+from nscomplex_updated import *
 from Orbits import orbits
 
 

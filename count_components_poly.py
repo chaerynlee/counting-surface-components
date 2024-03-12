@@ -2,7 +2,7 @@ import snappy
 import regina
 from sage.all import *
 from count_components import *
-from nscomplex import *
+from nscomplex_updated import *
 import orbits_poly
 import pickle
 
