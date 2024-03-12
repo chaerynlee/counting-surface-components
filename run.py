@@ -126,7 +126,7 @@ if __name__ == '__main__':
     for name in mfld_list:
         gc.collect()
         M = snappy.Manifold(name)
-        p = multiprocessing.Process(target=ahg_randomize(), args=(M))
+        p = multiprocessing.Process(target=ahg_randomize, args=(M,))
         p.start()
         p.join(5000)
         if p.is_alive():
