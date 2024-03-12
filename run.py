@@ -7,7 +7,7 @@
 #SBATCH --nice=10000
 #SBATCH --time=7-00:00
 #SBATCH --output=/data/keeling/a/chaeryn2/SLURM_print/count_components%A_%a
-#SBATCH --error=/data/keeling/a/chaeryn2/SLURM_error/count_componenets%A_%a
+#SBATCH --error=/data/keeling/a/chaeryn2/SLURM_error/count_components%A_%a
 
 from count_components_manifold import *
 from orbits_manifold import *
