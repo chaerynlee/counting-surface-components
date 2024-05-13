@@ -121,7 +121,7 @@ class SurfacetoOrbit:
                         self.pairings.append(orbits_manifold.Shift(domain_interval, range_interval, domain_edge, range_edge))
 
     def countcomponents(self):
-        G = orbits_manifold.Pseudogroup(self.pairings, self.interval)
+        G = orbits_manifold.Pseudogroup(self.pairings, self.interval, self.interval_divided)
         return G.reduce()
 
 

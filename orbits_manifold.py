@@ -207,6 +207,12 @@ class Polynomial:
             div_poly[var] = self.poly[var] / other.constant
         return Polynomial(div_constant, **div_poly)
 
+    def evaluate(self, **kwargs):
+        assert set(self.poly.keys()).issubset(set(kwargs.keys()))
+        num = self.constant
+        for var in self.poly.keys():
+            num += kwargs[var] * self.poly[var]
+        return num
 
 def gcd(x, y):
     if x == 0:
@@ -1295,3 +1301,14 @@ class Pseudogroup:
                     possible_transmissions = True
                     break
         return self.find_candidates()
+
+    def reduce_amap(self):
+        transmission_possible = True
+        while transmission_possible:
+            self.simplify_transmit()
+            transmission_possible = False
+            for I in self.divided_universe:
+                if not self.identify_edge_containing(I):
+                    possible_transmissions = True
+                    break
+        return self.universe, self.pairings

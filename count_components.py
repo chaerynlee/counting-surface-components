@@ -2,7 +2,7 @@ import snappy
 import regina
 from nscomplex_updated import *
 from Orbits import orbits
-
+import itertools
 
 class SurfacetoOrbit:
     '''
@@ -85,18 +85,35 @@ class SurfacetoOrbit:
 
 
 def main():
-    import snappy, regina
-    import nscomplex
-    M = snappy.Manifold('K13n586')
-    CS = nscomplex.ConnectedSurfaces(M, -6)
+    M = snappy.Manifold('K13n586_nice.tri')
+    CS = connected_surfaces.ConnectedSurfaces(M, -6)
     LW = CS.essential_faces_of_normal_polytope()
     vertex_surfaces = [face.vertex_surfaces for face in LW.maximal]
     F = vertex_surfaces[0][0]
     G = vertex_surfaces[0][1]
-    S = 2 * F + 4 * G
-    SO = SurfacetoOrbit(S.surface)
-    print(SO.pairings, SO.interval)
-    print(SO.countcomponents())
+    # S = 5 * F + 2 * G
+    # SO = SurfacetoOrbit(S.surface)
+    # print('interval', SO.interval)
+    # print('pairings', len(SO.pairings))
+    # for p in sorted(SO.pairings):
+    #     print(p)
+    # print()
+    # print('number of components', SO.countcomponents())
+
+    for comb in itertools.product(range(1, 10), repeat=2):
+        S = comb[0] * F + comb[1] * G
+        SO = SurfacetoOrbit(S.surface)
+        print(comb)
+        print('number of components', SO.countcomponents())
+
+def test_group():
+    I = orbits.Interval(1, 2)
+    pairings = [orbits.Pairing(orbits.Interval(1, 1), orbits.Isometry(3, 1))]
+    # pairings = []
+    G = orbits.Pseudogroup(pairings, I)
+    print(G)
+    print(G.reduce())
+
 
 if __name__ == '__main__':
     main()

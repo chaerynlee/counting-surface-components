@@ -390,6 +390,7 @@ class Pseudogroup:
         done=0
         while not done:
             periodics = [p for p in self.pairings if p.is_periodic()]
+            # print('periodics', periodics)
             done=1
             for p in periodics[:-1]:
                 for q in periodics[1+periodics.index(p):]:
@@ -398,11 +399,18 @@ class Pseudogroup:
                         g = p.merge(q)
                     except: pass
                     if g:
+                        # print('p:', p)
+                        # print('q:', q)
+                        # print('g:', g)
+                        # print('pairings:', self.pairings)
                         self.pairings.remove(p)
                         self.pairings.remove(q)
                         self.pairings.append(g)
                         done=0
                         break
+                else:
+                    continue
+                break
 
     def transmit(self):
         """
@@ -440,6 +448,8 @@ class Pseudogroup:
         self.clean()
         if len(self.pairings) == 0:
             self.pairings = None
+            # print('last step')
+            # print('length universe', self.universe.width)
             return self.universe.width
 #        print("cleaned\n", self)
         count = self.contract()
@@ -461,5 +471,14 @@ class Pseudogroup:
         """
         count = 0
         while self.pairings and len(self.pairings) != 0:
+            # print(self.universe)
+            # print(self.pairings)
+            # print(count)
+            # print()
             count += self.simplify()
-        return count
+        if self.pairings == None:
+            return count
+        elif len(self.pairings) == 0:
+            self.pairings = None
+            count += self.universe.width
+            return count

@@ -11,13 +11,14 @@
 
 from count_components_manifold import *
 from orbits_manifold import *
+from find_patterns import *
 import os
 import multiprocessing
 import gc
 import pandas as pd
 import snappy.snap.t3mlite as t3m
 
-def ahg_for_manifolds():
+def aht_for_manifolds():
     df = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
     index = df.index[df['name'] == 't12199'].values[0]
     pattern = df['gen_func'].iloc[index]
@@ -45,7 +46,7 @@ def ahg_for_manifolds():
     # G = Pseudogroup(eg_pairings, eg_int, ed_int_div)
     # G.reduce()
 
-def ahg_randomize(M):
+def aht_randomize(M):
     # M: snappy manifold
     tri_found = False
     tri_isosig = []
@@ -75,6 +76,49 @@ def ahg_randomize(M):
         while M.triangulation_isosig() in tri_isosig:
             M.randomize()
 
+def find_pattern(M):
+    correct_euler = False
+    euler_bound = -6
+    while not correct_euler:
+        try:
+            CS = ConnectedSurfaces(M, euler_bound)
+            correct_euler = True
+            LW = CS.essential_faces_of_normal_polytope()
+            LW_faces = LW.maximal
+        except:
+            euler_bound += -2
+
+    result_allfaces = []
+    for i in range(len(LW_faces)):
+        vs = LW_faces[i].vertex_surfaces
+        vs_regina_list = [S.surface for S in vs]
+        SO = SurfacetoOrbit(vs_regina_list)
+        G = Pseudogroup(SO.pairings, SO.interval, SO.interval_divided)
+        simplified_interval, simplified_pairings = G.reduce_amap()
+
+        # test all subcollections of size 2-6, stop if something is found
+        n = 2
+        for n in range(2, 7):
+            result = test_all_subcol(simplified_interval, simplified_pairings, SO.num_vertex, n)
+            if result:
+                break
+            else:
+                continue
+        # if no significant subcollection of size at most 6 is not found, simplify by removing pairings one at a time
+        if not result:
+            result = simplify_remove_one(simplified_interval, simplified_pairings, SO.num_vertex)
+        result_allfaces.append(result)
+
+    vertex_surfaces = [[S.full_vector for S in LW_faces[i].vertex_surfaces] for i in range(len(LW_faces))]
+    save = {'manifold': M.name(),
+            'LW_complex': vertex_surfaces,
+            'patterns': result_allfaces}
+    directory = '/data/keeling/a/chaeryn2/patterns/'
+    filename = f'pattern_info_{M.name()}'
+    with open(directory + filename, 'wb') as file:
+        pickle.dump(save, file)
+    return
+
 def print_manifold_info(M):
     # M: snappy manifold
     print('num tet:', M.num_tetrahedra())
@@ -99,7 +143,7 @@ def example():
     SO = SurfacetoOrbit(vs_regina_list)
     return SO.pairings[0]
 
-if __name__ == '__main__':
+def main_aht_randomize():
     task = int(os.environ['SLURM_ARRAY_TASK_ID'])
 
     df = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
@@ -126,7 +170,7 @@ if __name__ == '__main__':
     for name in mfld_list:
         gc.collect()
         M = snappy.Manifold(name)
-        p = multiprocessing.Process(target=ahg_randomize, args=(M,))
+        p = multiprocessing.Process(target=aht_randomize, args=(M,))
         p.start()
         p.join(5000)
         if p.is_alive():
@@ -143,3 +187,24 @@ if __name__ == '__main__':
                 else:
                     continue
             continue
+
+
+if __name__ == '__main__':
+    task = int(os.environ['SLURM_ARRAY_TASK_ID'])
+
+    df = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
+    mflds = df['name'].tolist()
+
+    mfld_list = []
+    for i in range(task, len(mflds), 20):
+        found = False
+        name = mflds[i]
+        for filename in os.listdir('/data/keeling/a/chaeryn2/patterns/'):
+            if name in filename:
+                found = True
+                break
+        if not found:
+            mfld_list.append(name)
+
+    for name in mfld_list:
+        find_pattern(M)
