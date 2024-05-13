@@ -207,4 +207,5 @@ if __name__ == '__main__':
             mfld_list.append(name)
 
     for name in mfld_list:
+        M = snappy.Manifold(name)
         find_pattern(M)
