@@ -109,7 +109,7 @@ def simplify_remove_one(interval, pairings, num_var):
     Remove the first insignificant pairing in the list of pairings.
     Do this as many times as necessary until it gets to the smallest set of pairings possible.
     """
-    original_len = len(SO.pairings)
+    original_len = len(pairings)
 
     # try removing parings that have the
 
