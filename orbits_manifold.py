@@ -709,9 +709,9 @@ class Pseudogroup:
         if not isinstance(interval, Interval):
             return False
         for pairing in self.pairings:
-            if pairing.domain == interval:
+            if pairing.domain == interval and pairing.domain_index != pairing.range_index:
                 return pairing
-            elif pairing.range == interval:
+            elif pairing.range == interval and pairing.domain_index != pairing.range_index:
                 return pairing
         return False
 

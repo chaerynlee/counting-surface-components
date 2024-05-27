@@ -146,6 +146,20 @@ def example():
     SO = SurfacetoOrbit(vs_regina_list)
     return SO.pairings[0]
 
+def find_smallest_mfld_by_genfcn():
+    # this function has already been run and the necessary txt file has been made, just left in case of future use
+    df = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
+    gen_fcn = df['gen_func'].unique().tolist()
+    least_time = []
+    for gf in gen_fcn:
+        df_gf = df[df['gen_func'] == gf]
+        index = df_gf['gen_func_time'].idxmin()
+        least_time.append(df_gf.loc[index, 'name'])
+
+    with open('smallest_manifold_by_genfcn.txt', 'w') as f:
+        for name in least_time:
+            f.write(str(name) + '\n')
+
 def main_aht_randomize():
     task = int(os.environ['SLURM_ARRAY_TASK_ID'])
 
@@ -210,10 +224,30 @@ def main_find_pattern():
 
     for name in mfld_list:
         M = snappy.Manifold(name)
-        print(name)
         find_pattern(M)
 
-def recreate_example(name):
+def main_find_pattern_by_genfcn():
+    task = int(os.environ['SLURM_ARRAY_TASK_ID'])
+
+    with open('smallest_manifold_by_genfcn.txt', 'r') as f:
+        mflds = f.read().split('\n')
+
+    mfld_list = []
+    for i in range(task, len(mflds), 20):
+        found = False
+        name = mflds[i]
+        for filename in os.listdir('/data/keeling/a/chaeryn2/patterns/'):
+            if name in filename:
+                found = True
+                break
+        if not found:
+            mfld_list.append(name)
+
+    for name in mfld_list:
+        M = snappy.Manifold(name)
+        find_pattern(M)
+
+def recreate_example(M):
     print('manifold', M.name())
     correct_euler = False
     euler_bound = -6
@@ -251,4 +285,4 @@ def recreate_example(name):
         print('pairings', result)
 
 if __name__ == '__main__':
-    main_find_pattern()
+    main_find_pattern_by_genfcn()
