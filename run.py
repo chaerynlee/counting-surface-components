@@ -86,6 +86,7 @@ def find_pattern(M):
             LW = CS.essential_faces_of_normal_polytope()
             LW_faces = LW.maximal
         except:
+            correct_euler = False
             euler_bound += -2
 
     result_allfaces = []
@@ -258,6 +259,7 @@ def recreate_example(M):
             LW = CS.essential_faces_of_normal_polytope()
             LW_faces = LW.maximal
         except:
+            correct_euler = False
             euler_bound += -2
 
     result_allfaces = []
@@ -286,3 +288,4 @@ def recreate_example(M):
 
 if __name__ == '__main__':
     main_find_pattern_by_genfcn()
+

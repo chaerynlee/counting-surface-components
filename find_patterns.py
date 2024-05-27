@@ -110,8 +110,8 @@ def simplify_remove_one(interval, pairings, num_var):
     Do this as many times as necessary until it gets to the smallest set of pairings possible.
     """
     original_len = len(pairings)
-
-    # try removing parings that have the
+    if original_len < 4:
+        return pairings
 
     simplify_possible = True
     while simplify_possible:
