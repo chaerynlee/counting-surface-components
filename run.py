@@ -89,12 +89,14 @@ def find_pattern(M):
             euler_bound += -2
 
     result_allfaces = []
+    interval_allfaces = []
     for i in range(len(LW_faces)):
         vs = LW_faces[i].vertex_surfaces
         vs_regina_list = [S.surface for S in vs]
         SO = SurfacetoOrbit(vs_regina_list)
         G = Pseudogroup(SO.pairings, SO.interval, SO.interval_divided)
         simplified_interval, simplified_pairings = G.reduce_amap()
+        interval_allfaces.append(simplified_interval)
 
         # test all subcollections of size 2-6, stop if something is found
         n = 2
@@ -112,6 +114,7 @@ def find_pattern(M):
     vertex_surfaces = [[S.full_vector for S in LW_faces[i].vertex_surfaces] for i in range(len(LW_faces))]
     save = {'manifold': M.name(),
             'LW_complex': vertex_surfaces,
+            'intervals': interval_allfaces,
             'patterns': result_allfaces}
     directory = '/data/keeling/a/chaeryn2/patterns/'
     filename = f'pattern_info_{M.name()}'
@@ -188,8 +191,7 @@ def main_aht_randomize():
                     continue
             continue
 
-
-if __name__ == '__main__':
+def main_find_pattern():
     task = int(os.environ['SLURM_ARRAY_TASK_ID'])
 
     df = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
@@ -208,4 +210,45 @@ if __name__ == '__main__':
 
     for name in mfld_list:
         M = snappy.Manifold(name)
+        print(name)
         find_pattern(M)
+
+def recreate_example(name):
+    print('manifold', M.name())
+    correct_euler = False
+    euler_bound = -6
+    while not correct_euler:
+        try:
+            CS = ConnectedSurfaces(M, euler_bound)
+            correct_euler = True
+            LW = CS.essential_faces_of_normal_polytope()
+            LW_faces = LW.maximal
+        except:
+            euler_bound += -2
+
+    result_allfaces = []
+    for i in range(len(LW_faces)):
+        print('face', i)
+        vs = LW_faces[i].vertex_surfaces
+        vs_regina_list = [S.surface for S in vs]
+        SO = SurfacetoOrbit(vs_regina_list)
+        G = Pseudogroup(SO.pairings, SO.interval, SO.interval_divided)
+        simplified_interval, simplified_pairings = G.reduce_amap()
+
+        # test all subcollections of size 2-6, stop if something is found
+        n = 2
+        for n in range(2, 7):
+            result = test_all_subcol(simplified_interval, simplified_pairings, SO.num_vertex, n)
+            if result:
+                break
+            else:
+                continue
+        # if no significant subcollection of size at most 6 is not found, simplify by removing pairings one at a time
+        if not result:
+            result = simplify_remove_one(simplified_interval, simplified_pairings, SO.num_vertex)
+        result_allfaces.append(result)
+        print('interval', simplified_interval)
+        print('pairings', result)
+
+if __name__ == '__main__':
+    main_find_pattern()
