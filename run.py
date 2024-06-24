@@ -76,6 +76,51 @@ def aht_randomize(M):
         while M.triangulation_isosig() in tri_isosig:
             M.randomize()
 
+def find_pattern_verylarge():
+    df = pd.read_csv(os.getcwd() + '/cusped_census_very_large.csv')
+    mflds = df['name'].tolist()
+    tri_info = df['tri_used'].tolist()
+    vector_info = df['vertex_surfaces'].tolist()
+    LWC_info = df['max_faces'].tolist()
+
+    for i, M in enumerate(mflds):
+        print(i, M)
+        TS = snappy.Manifold(tri_info[i])
+        T = regina.Triangulation3(TS)
+        interval_allfaces = []
+        result_allfaces = []
+        for face in eval(LWC_info[i]):
+            print(face)
+            surface_names = face['verts']
+            vertex_surface_vectors = [eval(vector_info[i])[name] for name in surface_names]
+            vertex_surfaces = [regina.NormalSurface(T, regina.NS_QUAD_CLOSED, vec) for vec in vertex_surface_vectors]
+            SO = SurfacetoOrbit(vertex_surfaces)
+            G = Pseudogroup(SO.pairings, SO.interval, SO.interval_divided)
+            simplified_interval, simplified_pairings = G.reduce_amap()
+            interval_allfaces.append(simplified_interval)
+
+            # test all subcollections of size 2-6, stop if something is found
+            n = 2
+            for n in range(2, 7):
+                result = test_all_subcol(simplified_interval, simplified_pairings, SO.num_vertex, n)
+                if result:
+                    break
+                else:
+                    continue
+            # if no significant subcollection of size at most 6 is not found, simplify by removing pairings one at a time
+            if not result:
+                result = simplify_remove_one(simplified_interval, simplified_pairings, SO.num_vertex)
+            result_allfaces.append(result)
+            print(result)
+
+        save = {'manifold': M,
+                'LW_complex': LWC_info[i],
+                'intervals': interval_allfaces,
+                'patterns': result_allfaces}
+        filename = f'verylarge_pattern_info_{M}'
+        with open(filename, 'wb') as file:
+            pickle.dump(save, file)
+
 def find_pattern(M):
     correct_euler = False
     euler_bound = -6
@@ -227,6 +272,65 @@ def main_find_pattern():
         M = snappy.Manifold(name)
         find_pattern(M)
 
+def main_find_pattern_verylarge():
+    task = int(os.environ['SLURM_ARRAY_TASK_ID'])
+
+    df = pd.read_csv(os.getcwd() + '/cusped_census_very_large.csv')
+    mflds = df['name'].tolist()
+    tri_info = df['tri_used'].tolist()
+    vector_info = df['vertex_surfaces'].tolist()
+    LWC_info = df['max_faces'].tolist()
+
+    mfld_list = []
+    for i in range(task, len(mflds), 20):
+        found = False
+        name = mflds[i]
+        for filename in os.listdir('/data/keeling/a/chaeryn2/patterns/'):
+            if name in filename:
+                found = True
+                break
+        if not found:
+            mfld_list.append(name)
+
+    for M in mfld_list:
+        i = mflds.index[M]
+        TS = snappy.Manifold(tri_info[i])
+        T = regina.Triangulation3(TS)
+        interval_allfaces = []
+        result_allfaces = []
+        for face in eval(LWC_info[i]):
+            print(face)
+            surface_names = face['verts']
+            vertex_surface_vectors = [eval(vector_info[i])[name] for name in surface_names]
+            vertex_surfaces = [regina.NormalSurface(T, regina.NS_QUAD_CLOSED, vec) for vec in vertex_surface_vectors]
+            SO = SurfacetoOrbit(vertex_surfaces)
+            G = Pseudogroup(SO.pairings, SO.interval, SO.interval_divided)
+            simplified_interval, simplified_pairings = G.reduce_amap()
+            interval_allfaces.append(simplified_interval)
+
+            # test all subcollections of size 2-6, stop if something is found
+            n = 2
+            for n in range(2, 7):
+                result = test_all_subcol(simplified_interval, simplified_pairings, SO.num_vertex, n)
+                if result:
+                    break
+                else:
+                    continue
+            # if no significant subcollection of size at most 6 is not found, simplify by removing pairings one at a time
+            if not result:
+                result = simplify_remove_one(simplified_interval, simplified_pairings, SO.num_vertex)
+            result_allfaces.append(result)
+            print(result)
+
+        save = {'manifold': M,
+                'LW_complex': LWC_info[i],
+                'intervals': interval_allfaces,
+                'patterns': result_allfaces}
+        directory = '/data/keeling/a/chaeryn2/patterns/'
+        filename = f'verylarge_pattern_info_{M}'
+        with open(directory + filename, 'wb') as file:
+            pickle.dump(save, file)
+
 def main_find_pattern_by_genfcn():
     task = int(os.environ['SLURM_ARRAY_TASK_ID'])
 
@@ -287,5 +391,4 @@ def recreate_example(M):
         print('pairings', result)
 
 if __name__ == '__main__':
-    main_find_pattern_by_genfcn()
-
+    main_find_pattern_verylarge()
