@@ -76,8 +76,8 @@ def aht_randomize(M):
         while M.triangulation_isosig() in tri_isosig:
             M.randomize()
 
-def find_pattern_verylarge():
-    df = pd.read_csv(os.getcwd() + '/cusped_census_very_large.csv')
+def find_pattern_unknown():
+    df = pd.read_csv(os.getcwd() + '/extended_by_genus.csv')
     mflds = df['name'].tolist()
     tri_info = df['tri_used'].tolist()
     vector_info = df['vertex_surfaces'].tolist()
@@ -98,16 +98,20 @@ def find_pattern_verylarge():
             G = Pseudogroup(SO.pairings, SO.interval, SO.interval_divided)
             simplified_interval, simplified_pairings = G.reduce_amap()
             interval_allfaces.append(simplified_interval)
+            print(len(simplified_pairings))
 
             # test all subcollections of size 2-6, stop if something is found
+            print('test1')
             n = 2
             for n in range(2, 7):
+                print(n)
                 result = test_all_subcol(simplified_interval, simplified_pairings, SO.num_vertex, n)
                 if result:
                     break
                 else:
                     continue
             # if no significant subcollection of size at most 6 is not found, simplify by removing pairings one at a time
+            print('test2')
             if not result:
                 result = simplify_remove_one(simplified_interval, simplified_pairings, SO.num_vertex)
             result_allfaces.append(result)
@@ -117,7 +121,7 @@ def find_pattern_verylarge():
                 'LW_complex': LWC_info[i],
                 'intervals': interval_allfaces,
                 'patterns': result_allfaces}
-        filename = f'verylarge_pattern_info_{M}'
+        filename = f'unknown_pattern_info_{M}'
         with open(filename, 'wb') as file:
             pickle.dump(save, file)
 
@@ -272,10 +276,10 @@ def main_find_pattern():
         M = snappy.Manifold(name)
         find_pattern(M)
 
-def main_find_pattern_verylarge():
+def main_find_pattern_unknown():
     task = int(os.environ['SLURM_ARRAY_TASK_ID'])
 
-    df = pd.read_csv(os.getcwd() + '/cusped_census_very_large.csv')
+    df = pd.read_csv(os.getcwd() + '/extended_by_genus.csv')
     mflds = df['name'].tolist()
     tri_info = df['tri_used'].tolist()
     vector_info = df['vertex_surfaces'].tolist()
@@ -299,7 +303,6 @@ def main_find_pattern_verylarge():
         interval_allfaces = []
         result_allfaces = []
         for face in eval(LWC_info[i]):
-            print(face)
             surface_names = face['verts']
             vertex_surface_vectors = [eval(vector_info[i])[name] for name in surface_names]
             vertex_surfaces = [regina.NormalSurface(T, regina.NS_QUAD_CLOSED, vec) for vec in vertex_surface_vectors]
@@ -327,7 +330,7 @@ def main_find_pattern_verylarge():
                 'intervals': interval_allfaces,
                 'patterns': result_allfaces}
         directory = '/data/keeling/a/chaeryn2/patterns/'
-        filename = f'verylarge_pattern_info_{M}'
+        filename = f'unknown_pattern_info_{M}'
         with open(directory + filename, 'wb') as file:
             pickle.dump(save, file)
 
@@ -391,4 +394,4 @@ def recreate_example(M):
         print('pairings', result)
 
 if __name__ == '__main__':
-    main_find_pattern_verylarge()
+    find_pattern_unknown()
