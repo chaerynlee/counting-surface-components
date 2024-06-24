@@ -1,6 +1,6 @@
 #! /data/keeling/a/nmd/miniconda3/envs/sage_full/bin/sage-python -u
 
-#SBATCH --array=0-19
+#SBATCH --array=0-79
 #SBATCH --partition m
 #SBATCH --tasks=1
 #SBATCH --mem-per-cpu=4G
@@ -82,48 +82,50 @@ def find_pattern_unknown():
     tri_info = df['tri_used'].tolist()
     vector_info = df['vertex_surfaces'].tolist()
     LWC_info = df['max_faces'].tolist()
+    regular = df['likely_regular'].tolist()
 
     for i, M in enumerate(mflds):
-        print(i, M)
-        TS = snappy.Manifold(tri_info[i])
-        T = regina.Triangulation3(TS)
-        interval_allfaces = []
-        result_allfaces = []
-        for face in eval(LWC_info[i]):
-            print(face)
-            surface_names = face['verts']
-            vertex_surface_vectors = [eval(vector_info[i])[name] for name in surface_names]
-            vertex_surfaces = [regina.NormalSurface(T, regina.NS_QUAD_CLOSED, vec) for vec in vertex_surface_vectors]
-            SO = SurfacetoOrbit(vertex_surfaces)
-            G = Pseudogroup(SO.pairings, SO.interval, SO.interval_divided)
-            simplified_interval, simplified_pairings = G.reduce_amap()
-            interval_allfaces.append(simplified_interval)
-            print(len(simplified_pairings))
+        if int(regular[i]) == 0:
+            print(i, M)
+            TS = snappy.Manifold(tri_info[i])
+            T = regina.Triangulation3(TS)
+            interval_allfaces = []
+            result_allfaces = []
+            for face in eval(LWC_info[i]):
+                print(face)
+                surface_names = face['verts']
+                vertex_surface_vectors = [eval(vector_info[i])[name] for name in surface_names]
+                vertex_surfaces = [regina.NormalSurface(T, regina.NS_QUAD_CLOSED, vec) for vec in vertex_surface_vectors]
+                SO = SurfacetoOrbit(vertex_surfaces)
+                G = Pseudogroup(SO.pairings, SO.interval, SO.interval_divided)
+                simplified_interval, simplified_pairings = G.reduce_amap()
+                interval_allfaces.append(simplified_interval)
+                print(len(simplified_pairings))
 
-            # test all subcollections of size 2-6, stop if something is found
-            print('test1')
-            n = 2
-            for n in range(2, 7):
-                print(n)
-                result = test_all_subcol(simplified_interval, simplified_pairings, SO.num_vertex, n)
-                if result:
-                    break
-                else:
-                    continue
-            # if no significant subcollection of size at most 6 is not found, simplify by removing pairings one at a time
-            print('test2')
-            if not result:
-                result = simplify_remove_one(simplified_interval, simplified_pairings, SO.num_vertex)
-            result_allfaces.append(result)
-            print(result)
+                # test all subcollections of size 2-6, stop if something is found
+                print('test1')
+                n = 2
+                for n in range(2, 7):
+                    result = test_all_subcol(simplified_interval, simplified_pairings, SO.num_vertex, n)
+                    if result:
+                        break
+                    else:
+                        continue
+                # if no significant subcollection of size at most 6 is not found, simplify by removing pairings one at a time
+                print('test2')
+                if not result:
+                    result = []
+                    # result = simplify_remove_one(simplified_interval, simplified_pairings, SO.num_vertex)
+                result_allfaces.append(result)
+                print(result)
 
-        save = {'manifold': M,
-                'LW_complex': LWC_info[i],
-                'intervals': interval_allfaces,
-                'patterns': result_allfaces}
-        filename = f'unknown_pattern_info_{M}'
-        with open(filename, 'wb') as file:
-            pickle.dump(save, file)
+            save = {'manifold': M,
+                    'LW_complex': LWC_info[i],
+                    'intervals': interval_allfaces,
+                    'patterns': result_allfaces}
+            filename = f'unknown_pattern_info_{M}'
+            with open(filename, 'wb') as file:
+                pickle.dump(save, file)
 
 def find_pattern(M):
     correct_euler = False
@@ -323,7 +325,6 @@ def main_find_pattern_unknown():
             if not result:
                 result = simplify_remove_one(simplified_interval, simplified_pairings, SO.num_vertex)
             result_allfaces.append(result)
-            print(result)
 
         save = {'manifold': M,
                 'LW_complex': LWC_info[i],
@@ -394,4 +395,4 @@ def recreate_example(M):
         print('pairings', result)
 
 if __name__ == '__main__':
-    find_pattern_unknown()
+    main_find_pattern_unknown()
