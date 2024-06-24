@@ -293,7 +293,7 @@ def main_find_pattern_verylarge():
             mfld_list.append(name)
 
     for M in mfld_list:
-        i = mflds.index[M]
+        i = mflds.index(M)
         TS = snappy.Manifold(tri_info[i])
         T = regina.Triangulation3(TS)
         interval_allfaces = []
