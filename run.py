@@ -1,6 +1,6 @@
 #! /data/keeling/a/nmd/miniconda3/envs/sage_full/bin/sage-python -u
 
-#SBATCH --array=0-79
+#SBATCH --array=0-75
 #SBATCH --partition m
 #SBATCH --tasks=1
 #SBATCH --mem-per-cpu=4G
@@ -212,6 +212,23 @@ def find_smallest_mfld_by_genfcn():
         for name in least_time:
             f.write(str(name) + '\n')
 
+def find_rep_manifold_ebg():
+    # this function has already been run and the necessary txt file has been made, just left in case of future use
+    df = pd.read_csv(os.getcwd() + '/extended_by_genus.csv')
+    df_all = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
+    gen_fcn = df['gen_func'].unique().tolist()
+    least_faces = []
+    for gf in gen_fcn:
+        df_gf = df_all[df_all['gen_func'] == gf]
+        min_faces = df_gf['LW_num_max_faces'].min()
+        df_gf_mf = df_gf[df_gf['LW_num_max_faces'] == min_faces]
+        index = df_gf_mf['tets'].idxmin()
+        least_faces.append(df_gf_mf.loc[index, 'name'])
+
+    with open('manifolds_with_least_LWfaces.txt', 'w') as f:
+        for name in least_faces:
+            f.write(str(name) + '\n')
+
 def main_aht_randomize():
     task = int(os.environ['SLURM_ARRAY_TASK_ID'])
 
@@ -281,14 +298,18 @@ def main_find_pattern():
 def main_find_pattern_unknown():
     task = int(os.environ['SLURM_ARRAY_TASK_ID'])
 
-    df = pd.read_csv(os.getcwd() + '/extended_by_genus.csv')
-    mflds = df['name'].tolist()
+    df_all = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
+
+    f = open(os.getcwd() + '/manifolds_with_least_LWfaces.txt')
+    mflds = f.read().split('\n')
+    df = df_all[df_all['name'].isin(mflds)]
+
     tri_info = df['tri_used'].tolist()
     vector_info = df['vertex_surfaces'].tolist()
     LWC_info = df['max_faces'].tolist()
 
     mfld_list = []
-    for i in range(task, len(mflds), 20):
+    for i in range(task, df.shape[0], 76):
         found = False
         name = mflds[i]
         for filename in os.listdir('/data/keeling/a/chaeryn2/patterns/'):
@@ -304,30 +325,38 @@ def main_find_pattern_unknown():
         T = regina.Triangulation3(TS)
         interval_allfaces = []
         result_allfaces = []
+        original_PG = []
         for face in eval(LWC_info[i]):
             surface_names = face['verts']
-            vertex_surface_vectors = [eval(vector_info[i])[name] for name in surface_names]
-            vertex_surfaces = [regina.NormalSurface(T, regina.NS_QUAD_CLOSED, vec) for vec in vertex_surface_vectors]
-            SO = SurfacetoOrbit(vertex_surfaces)
-            G = Pseudogroup(SO.pairings, SO.interval, SO.interval_divided)
-            simplified_interval, simplified_pairings = G.reduce_amap()
-            interval_allfaces.append(simplified_interval)
+            if len(surface_names) == 1:
+                interval_allfaces.append('single_vertex_surface')
+                result_allfaces.append('single_vertex_surface')
+            else:
+                vertex_surface_vectors = [eval(vector_info[i])[name] for name in surface_names]
+                vertex_surfaces = [regina.NormalSurface(T, regina.NS_QUAD_CLOSED, vec) for vec in vertex_surface_vectors]
+                SO = SurfacetoOrbit(vertex_surfaces)
+                G = Pseudogroup(SO.pairings, SO.interval, SO.interval_divided)
+                original_PG.append(G)
+                simplified_interval, simplified_pairings = G.reduce_amap()
+                interval_allfaces.append(simplified_interval)
 
-            # test all subcollections of size 2-6, stop if something is found
-            n = 2
-            for n in range(2, 7):
-                result = test_all_subcol(simplified_interval, simplified_pairings, SO.num_vertex, n)
-                if result:
-                    break
-                else:
-                    continue
-            # if no significant subcollection of size at most 6 is not found, simplify by removing pairings one at a time
-            if not result:
-                result = simplify_remove_one(simplified_interval, simplified_pairings, SO.num_vertex)
-            result_allfaces.append(result)
+                # test all subcollections of size 2-6, stop if something is found
+                n = 2
+                for n in range(2, 7):
+                    result = test_all_subcol(simplified_interval, simplified_pairings, SO.num_vertex, n)
+                    if result:
+                        break
+                    else:
+                        continue
+                # for time efficiency just return 'not_found' if the previous step fails
+                if not result:
+                    # result = simplify_remove_one(simplified_interval, simplified_pairings, SO.num_vertex)
+                    result = 'not_found'
+                result_allfaces.append(result)
 
         save = {'manifold': M,
                 'LW_complex': LWC_info[i],
+                'orginal_psuedogroup': original_PG,
                 'intervals': interval_allfaces,
                 'patterns': result_allfaces}
         directory = '/data/keeling/a/chaeryn2/patterns/'
