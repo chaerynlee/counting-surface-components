@@ -76,34 +76,85 @@ def aht_randomize(M):
         while M.triangulation_isosig() in tri_isosig:
             M.randomize()
 
-def find_pattern_unknown():
-    df = pd.read_csv(os.getcwd() + '/extended_by_genus.csv')
-    mflds = df['name'].tolist()
+def find_pattern_unknown(index=-1):
+    df_all = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
+
+    f = open(os.getcwd() + '/manifolds_with_least_LWfaces.txt')
+    mflds = f.read().split('\n')
+    df = df_all[df_all['name'].isin(mflds)]
+
     tri_info = df['tri_used'].tolist()
     vector_info = df['vertex_surfaces'].tolist()
     LWC_info = df['max_faces'].tolist()
-    regular = df['likely_regular'].tolist()
 
-    for i, M in enumerate(mflds):
-        if int(regular[i]) == 0:
-            print(i, M)
+    if index == -1:
+        for i, M in df['name'].tolist():
             TS = snappy.Manifold(tri_info[i])
             T = regina.Triangulation3(TS)
             interval_allfaces = []
             result_allfaces = []
+            original_PG = []
             for face in eval(LWC_info[i]):
-                print(face)
                 surface_names = face['verts']
+                if len(surface_names) == 1:
+                    interval_allfaces.append('single_vertex_surface')
+                    result_allfaces.append('single_vertex_surface')
+                else:
+                    vertex_surface_vectors = [eval(vector_info[i])[name] for name in surface_names]
+                    vertex_surfaces = [regina.NormalSurface(T, regina.NS_QUAD_CLOSED, vec) for vec in
+                                       vertex_surface_vectors]
+                    SO = SurfacetoOrbit(vertex_surfaces)
+                    G = Pseudogroup(SO.pairings, SO.interval, SO.interval_divided)
+                    original_PG.append(G)
+                    simplified_interval, simplified_pairings = G.reduce_amap()
+                    interval_allfaces.append(simplified_interval)
+
+                    # test all subcollections of size 2-6, stop if something is found
+                    n = 2
+                    for n in range(2, 7):
+                        result = test_all_subcol(simplified_interval, simplified_pairings, SO.num_vertex, n)
+                        if result:
+                            break
+                        else:
+                            continue
+                    # for time efficiency just return 'not_found' if the previous step fails
+                    if not result:
+                        # result = simplify_remove_one(simplified_interval, simplified_pairings, SO.num_vertex)
+                        result = 'not_found'
+                    result_allfaces.append(result)
+
+            save = {'manifold': M,
+                    'LW_complex': LWC_info[i],
+                    'orginal_psuedogroup': original_PG,
+                    'intervals': interval_allfaces,
+                    'patterns': result_allfaces}
+            filename = f'unknown_pattern_info_{M}'
+            with open(filename, 'wb') as file:
+                pickle.dump(save, file)
+    else:
+        i = index
+        M = mflds[i]
+        TS = snappy.Manifold(tri_info[i])
+        T = regina.Triangulation3(TS)
+        interval_allfaces = []
+        result_allfaces = []
+        original_PG = []
+        for face in eval(LWC_info[i]):
+            surface_names = face['verts']
+            if len(surface_names) == 1:
+                interval_allfaces.append('single_vertex_surface')
+                result_allfaces.append('single_vertex_surface')
+            else:
                 vertex_surface_vectors = [eval(vector_info[i])[name] for name in surface_names]
-                vertex_surfaces = [regina.NormalSurface(T, regina.NS_QUAD_CLOSED, vec) for vec in vertex_surface_vectors]
+                vertex_surfaces = [regina.NormalSurface(T, regina.NS_QUAD_CLOSED, vec) for vec in
+                                   vertex_surface_vectors]
                 SO = SurfacetoOrbit(vertex_surfaces)
                 G = Pseudogroup(SO.pairings, SO.interval, SO.interval_divided)
+                original_PG.append(G)
                 simplified_interval, simplified_pairings = G.reduce_amap()
                 interval_allfaces.append(simplified_interval)
-                print(len(simplified_pairings))
 
                 # test all subcollections of size 2-6, stop if something is found
-                print('test1')
                 n = 2
                 for n in range(2, 7):
                     result = test_all_subcol(simplified_interval, simplified_pairings, SO.num_vertex, n)
@@ -111,21 +162,21 @@ def find_pattern_unknown():
                         break
                     else:
                         continue
-                # if no significant subcollection of size at most 6 is not found, simplify by removing pairings one at a time
-                print('test2')
+                # for time efficiency just return 'not_found' if the previous step fails
                 if not result:
-                    result = []
                     # result = simplify_remove_one(simplified_interval, simplified_pairings, SO.num_vertex)
+                    result = 'not_found'
                 result_allfaces.append(result)
-                print(result)
 
-            save = {'manifold': M,
-                    'LW_complex': LWC_info[i],
-                    'intervals': interval_allfaces,
-                    'patterns': result_allfaces}
-            filename = f'unknown_pattern_info_{M}'
-            with open(filename, 'wb') as file:
-                pickle.dump(save, file)
+        save = {'manifold': M,
+                'LW_complex': LWC_info[i],
+                'orginal_psuedogroup': original_PG,
+                'intervals': interval_allfaces,
+                'patterns': result_allfaces}
+        filename = f'unknown_pattern_info_{M}'
+        with open(filename, 'wb') as file:
+            pickle.dump(save, file)
+
 
 def find_pattern(M):
     correct_euler = False
@@ -213,7 +264,6 @@ def find_smallest_mfld_by_genfcn():
             f.write(str(name) + '\n')
 
 def find_rep_manifold_ebg():
-    # this function has already been run and the necessary txt file has been made, just left in case of future use
     df = pd.read_csv(os.getcwd() + '/extended_by_genus.csv')
     df_all = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
     gen_fcn = df['gen_func'].unique().tolist()
@@ -296,7 +346,7 @@ def main_find_pattern():
         find_pattern(M)
 
 def main_find_pattern_unknown():
-    task = int(os.environ['SLURM_ARRAY_TASK_ID'])
+    i = int(os.environ['SLURM_ARRAY_TASK_ID'])
 
     df_all = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
 
@@ -304,65 +354,62 @@ def main_find_pattern_unknown():
     mflds = f.read().split('\n')
     df = df_all[df_all['name'].isin(mflds)]
 
-    tri_info = df['tri_used'].tolist()
-    vector_info = df['vertex_surfaces'].tolist()
-    LWC_info = df['max_faces'].tolist()
+    # mfld_list = []
+    # for i in range(task, df.shape[0], 76):
+    #     found = False
+    #     name = mflds[i]
+    #     for filename in os.listdir('/data/keeling/a/chaeryn2/patterns/'):
+    #         if name in filename:
+    #             found = True
+    #             break
+    #     if not found:
+    #         mfld_list.append(name)
 
-    mfld_list = []
-    for i in range(task, df.shape[0], 76):
-        found = False
-        name = mflds[i]
-        for filename in os.listdir('/data/keeling/a/chaeryn2/patterns/'):
-            if name in filename:
-                found = True
-                break
-        if not found:
-            mfld_list.append(name)
+    M = df.iloc[i, df.columns.get_loc('name')]
+    TS = snappy.Manifold(df.iloc[i, df.columns.get_loc('tri_used')])
+    T = regina.Triangulation3(TS)
+    vector_info = df.iloc[i, df.columns.get_loc('vertex_surfaces')]
+    LWC_info = df.iloc[i, df.columns.get_loc('max_faces')]
 
-    for M in mfld_list:
-        i = mflds.index(M)
-        TS = snappy.Manifold(tri_info[i])
-        T = regina.Triangulation3(TS)
-        interval_allfaces = []
-        result_allfaces = []
-        original_PG = []
-        for face in eval(LWC_info[i]):
-            surface_names = face['verts']
-            if len(surface_names) == 1:
-                interval_allfaces.append('single_vertex_surface')
-                result_allfaces.append('single_vertex_surface')
-            else:
-                vertex_surface_vectors = [eval(vector_info[i])[name] for name in surface_names]
-                vertex_surfaces = [regina.NormalSurface(T, regina.NS_QUAD_CLOSED, vec) for vec in vertex_surface_vectors]
-                SO = SurfacetoOrbit(vertex_surfaces)
-                G = Pseudogroup(SO.pairings, SO.interval, SO.interval_divided)
-                original_PG.append(G)
-                simplified_interval, simplified_pairings = G.reduce_amap()
-                interval_allfaces.append(simplified_interval)
+    interval_allfaces = []
+    result_allfaces = []
+    original_PG = []
+    for face in eval(LWC_info):
+        surface_names = face['verts']
+        if len(surface_names) == 1:
+            interval_allfaces.append('single_vertex_surface')
+            result_allfaces.append('single_vertex_surface')
+        else:
+            vertex_surface_vectors = [eval(vector_info)[name] for name in surface_names]
+            vertex_surfaces = [regina.NormalSurface(T, regina.NS_QUAD_CLOSED, vec) for vec in vertex_surface_vectors]
+            SO = SurfacetoOrbit(vertex_surfaces)
+            G = Pseudogroup(SO.pairings, SO.interval, SO.interval_divided)
+            original_PG.append(G)
+            simplified_interval, simplified_pairings = G.reduce_amap()
+            interval_allfaces.append(simplified_interval)
 
-                # test all subcollections of size 2-6, stop if something is found
-                n = 2
-                for n in range(2, 7):
-                    result = test_all_subcol(simplified_interval, simplified_pairings, SO.num_vertex, n)
-                    if result:
-                        break
-                    else:
-                        continue
-                # for time efficiency just return 'not_found' if the previous step fails
-                if not result:
-                    # result = simplify_remove_one(simplified_interval, simplified_pairings, SO.num_vertex)
-                    result = 'not_found'
-                result_allfaces.append(result)
+            # test all subcollections of size 2-6, stop if something is found
+            for n in range(2, 7):
+                result = test_all_subcol(simplified_interval, simplified_pairings, SO.num_vertex, n)
+                if result:
+                    break
+                else:
+                    continue
+            # for time efficiency just return 'not_found' if the previous step fails
+            if not result:
+                # result = simplify_remove_one(simplified_interval, simplified_pairings, SO.num_vertex)
+                result = 'not_found'
+            result_allfaces.append(result)
 
-        save = {'manifold': M,
-                'LW_complex': LWC_info[i],
-                'orginal_psuedogroup': original_PG,
-                'intervals': interval_allfaces,
-                'patterns': result_allfaces}
-        directory = '/data/keeling/a/chaeryn2/patterns/'
-        filename = f'unknown_pattern_info_{M}'
-        with open(directory + filename, 'wb') as file:
-            pickle.dump(save, file)
+    save = {'manifold': M,
+            'LW_complex': LWC_info,
+            'orginal_psuedogroup': original_PG,
+            'intervals': interval_allfaces,
+            'patterns': result_allfaces}
+    directory = '/data/keeling/a/chaeryn2/patterns/'
+    filename = f'unknown_pattern_info_{M}'
+    with open(directory + filename, 'wb') as file:
+        pickle.dump(save, file)
 
 def main_find_pattern_by_genfcn():
     task = int(os.environ['SLURM_ARRAY_TASK_ID'])
@@ -386,42 +433,63 @@ def main_find_pattern_by_genfcn():
         find_pattern(M)
 
 def recreate_example(M):
-    print('manifold', M.name())
-    correct_euler = False
-    euler_bound = -6
-    while not correct_euler:
-        try:
-            CS = ConnectedSurfaces(M, euler_bound)
-            correct_euler = True
-            LW = CS.essential_faces_of_normal_polytope()
-            LW_faces = LW.maximal
-        except:
-            correct_euler = False
-            euler_bound += -2
+    # M: string of the manifold's name
+    print('manifold', M)
+    df = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
 
+    tri_info = df['tri_used'].tolist()
+    vector_info = df['vertex_surfaces'].tolist()
+    LWC_info = df['max_faces'].tolist()
+    i = df.index[df['name'] == M].values[0]
+
+    TS = snappy.Manifold(tri_info[i])
+    T = regina.Triangulation3(TS)
+    interval_allfaces = []
     result_allfaces = []
-    for i in range(len(LW_faces)):
-        print('face', i)
-        vs = LW_faces[i].vertex_surfaces
-        vs_regina_list = [S.surface for S in vs]
-        SO = SurfacetoOrbit(vs_regina_list)
-        G = Pseudogroup(SO.pairings, SO.interval, SO.interval_divided)
-        simplified_interval, simplified_pairings = G.reduce_amap()
+    original_PG = []
+    print(LWC_info[i])
+    for face in eval(LWC_info[i]):
+        surface_names = face['verts']
+        if len(surface_names) == 1:
+            interval_allfaces.append('single_vertex_surface')
+            result_allfaces.append('single_vertex_surface')
+        else:
+            print(face)
+            vertex_surface_vectors = [eval(vector_info[i])[name] for name in surface_names]
+            vertex_surfaces = [regina.NormalSurface(T, regina.NS_QUAD_CLOSED, vec) for vec in
+                               vertex_surface_vectors]
+            SO = SurfacetoOrbit(vertex_surfaces)
+            G = Pseudogroup(SO.pairings, SO.interval, SO.interval_divided)
+            print('original PG', G)
+            original_PG.append(G)
+            simplified_interval, simplified_pairings = G.reduce_amap()
+            interval_allfaces.append(simplified_interval)
+            print('simplified to', simplified_interval)
+            print(simplified_pairings)
 
-        # test all subcollections of size 2-6, stop if something is found
-        n = 2
-        for n in range(2, 7):
-            result = test_all_subcol(simplified_interval, simplified_pairings, SO.num_vertex, n)
-            if result:
-                break
-            else:
-                continue
-        # if no significant subcollection of size at most 6 is not found, simplify by removing pairings one at a time
-        if not result:
-            result = simplify_remove_one(simplified_interval, simplified_pairings, SO.num_vertex)
-        result_allfaces.append(result)
-        print('interval', simplified_interval)
-        print('pairings', result)
+            # test all subcollections of size 2-6, stop if something is found
+            for n in range(2, 7):
+                result = test_all_subcol(simplified_interval, simplified_pairings, SO.num_vertex, n)
+                if result:
+                    break
+                else:
+                    continue
+
+            # for time efficiency just return 'not_found' if the previous step fails
+            if not result:
+                # result = simplify_remove_one(simplified_interval, simplified_pairings, SO.num_vertex)
+                result = 'not_found'
+            print('result', result)
+            result_allfaces.append(result)
+
+    # save = {'manifold': M,
+    #         'LW_complex': LWC_info[i],
+    #         'orginal_psuedogroup': original_PG,
+    #         'intervals': interval_allfaces,
+    #         'patterns': result_allfaces}
+    # filename = f'unknown_pattern_info_{M}'
+    # with open(filename, 'wb') as file:
+    #     pickle.dump(save, file)
 
 if __name__ == '__main__':
     main_find_pattern_unknown()
