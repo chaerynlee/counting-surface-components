@@ -493,5 +493,4 @@ def recreate_example(M):
         pickle.dump(save, file)
 
 if __name__ == '__main__':
-    # main_find_pattern_unknown()
-    recreate_example('o9_34491')
+    main_find_pattern_unknown()
