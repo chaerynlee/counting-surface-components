@@ -17,6 +17,7 @@ import multiprocessing
 import gc
 import pandas as pd
 import snappy.snap.t3mlite as t3m
+import copy
 
 def aht_for_manifolds():
     df = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
@@ -384,7 +385,8 @@ def main_find_pattern_unknown():
             vertex_surfaces = [regina.NormalSurface(T, regina.NS_QUAD_CLOSED, vec) for vec in vertex_surface_vectors]
             SO = SurfacetoOrbit(vertex_surfaces)
             G = Pseudogroup(SO.pairings, SO.interval, SO.interval_divided)
-            original_PG.append(G)
+            G_copy = copy.deepcopy(G)
+            original_PG.append(G_copy)
             simplified_interval, simplified_pairings = G.reduce_amap()
             interval_allfaces.append(simplified_interval)
 
@@ -435,32 +437,30 @@ def main_find_pattern_by_genfcn():
 def recreate_example(M):
     # M: string of the manifold's name
     print('manifold', M)
+
     df = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
-
-    tri_info = df['tri_used'].tolist()
-    vector_info = df['vertex_surfaces'].tolist()
-    LWC_info = df['max_faces'].tolist()
     i = df.index[df['name'] == M].values[0]
-
-    TS = snappy.Manifold(tri_info[i])
+    # M = df.iloc[i, df.columns.get_loc('name')]
+    TS = snappy.Manifold(df.iloc[i, df.columns.get_loc('tri_used')])
     T = regina.Triangulation3(TS)
+    vector_info = df.iloc[i, df.columns.get_loc('vertex_surfaces')]
+    LWC_info = df.iloc[i, df.columns.get_loc('max_faces')]
+
     interval_allfaces = []
     result_allfaces = []
     original_PG = []
-    print(LWC_info[i])
-    for face in eval(LWC_info[i]):
+    for face in eval(LWC_info):
+        print(face)
         surface_names = face['verts']
         if len(surface_names) == 1:
             interval_allfaces.append('single_vertex_surface')
             result_allfaces.append('single_vertex_surface')
         else:
-            print(face)
-            vertex_surface_vectors = [eval(vector_info[i])[name] for name in surface_names]
-            vertex_surfaces = [regina.NormalSurface(T, regina.NS_QUAD_CLOSED, vec) for vec in
-                               vertex_surface_vectors]
+            vertex_surface_vectors = [eval(vector_info)[name] for name in surface_names]
+            vertex_surfaces = [regina.NormalSurface(T, regina.NS_QUAD_CLOSED, vec) for vec in vertex_surface_vectors]
             SO = SurfacetoOrbit(vertex_surfaces)
             G = Pseudogroup(SO.pairings, SO.interval, SO.interval_divided)
-            print('original PG', G)
+            print(G)
             original_PG.append(G)
             simplified_interval, simplified_pairings = G.reduce_amap()
             interval_allfaces.append(simplified_interval)
@@ -474,22 +474,24 @@ def recreate_example(M):
                     break
                 else:
                     continue
-
             # for time efficiency just return 'not_found' if the previous step fails
             if not result:
                 # result = simplify_remove_one(simplified_interval, simplified_pairings, SO.num_vertex)
                 result = 'not_found'
-            print('result', result)
+            print('result')
+            for r in result:
+                print(r)
             result_allfaces.append(result)
 
-    # save = {'manifold': M,
-    #         'LW_complex': LWC_info[i],
-    #         'orginal_psuedogroup': original_PG,
-    #         'intervals': interval_allfaces,
-    #         'patterns': result_allfaces}
-    # filename = f'unknown_pattern_info_{M}'
-    # with open(filename, 'wb') as file:
-    #     pickle.dump(save, file)
+    save = {'manifold': M,
+            'LW_complex': LWC_info,
+            'orginal_psuedogroup': original_PG,
+            'intervals': interval_allfaces,
+            'patterns': result_allfaces}
+    filename = f'unknown_pattern_info_{M}'
+    with open(filename, 'wb') as file:
+        pickle.dump(save, file)
 
 if __name__ == '__main__':
-    main_find_pattern_unknown()
+    # main_find_pattern_unknown()
+    recreate_example('o9_34491')
