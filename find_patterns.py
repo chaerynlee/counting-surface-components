@@ -1,18 +1,11 @@
 from count_components_manifold import *
 from orbits_manifold import *
 from Orbits import orbits
-import os
+import count_components
+import os, itertools, random, math
 import pandas as pd
+import numpy as np
 import snappy.snap.t3mlite as t3m
-import itertools
-import random
-import math
-
-
-# TODO
-# - modify simplify_remove_one() to check more cases (not just removing the first insignificant pairing in the list but maybe all?)
-# - write new function that checks all combinations of pairings of a certain small number(maybe 5?)
-# - run both functions on an example to see if we get reasonable results analyzable by hand
 
 def evaluate_interval(interval, assign):
     return orbits.Interval(interval.start.evaluate(**assign) + 1, interval.end.evaluate(**assign))
@@ -143,7 +136,56 @@ def test_all_subcol(interval, pairings, num_var, n=5):
             return subcollection
     return False
 
-if __name__ == '__main__':
+def extend_gen_fcn(manifold, genus):
+    """
+    For the given manifold, calculates the number of connected surfaces of the given genus.
+    manifold must be a string of its name and must be contained in the data set 'very_large_combined.csv'
+    """
+    # print('manifold', manifold)
+
+    df = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
+    i = df.index[df['name'] == manifold].values[0]
+    TS = snappy.Manifold(df.iloc[i, df.columns.get_loc('tri_used')])
+    T = regina.Triangulation3(TS)
+    LWC_info = df.iloc[i, df.columns.get_loc('max_faces')]
+    vector_info = df.iloc[i, df.columns.get_loc('vertex_surfaces')]
+    genera_info = df.iloc[i, df.columns.get_loc('vertex_genera')]
+
+    count = 0
+    for face in eval(LWC_info):
+        # print('face', face)
+        surface_names = face['verts']
+        if len(surface_names) == 1:
+            # print('single vertex surface')
+            surface_genus = eval(genera_info)[surface_names[0]]
+            if surface_genus == genus:
+              count += 1
+        else:
+            # print('more than one vertex surface')
+            vertex_surface_vectors = [eval(vector_info)[name] for name in surface_names]
+            # print('vertex surfaces', vertex_surface_vectors)
+            vertex_surface_genera = [eval(genera_info)[name] for name in surface_names]
+            vertex_surfaces = [regina.NormalSurface(T, regina.NS_QUAD_CLOSED, vec) for vec in vertex_surface_vectors]
+            num_var = len(surface_names)
+
+            # TODO
+            # is there a quick way to find all surfaces of given genus (all lattice points in cone of each lw-face)
+            # from just the vertex surface vectors?
+            solutions = [(1, 2), (3, 4), (5, 6)]  # just some random example to test code, should be replaced once TODO is solved
+
+            for sol in solutions:
+                sol_vector = np.zeros(len(vertex_surface_vectors[0]))
+                for i, k in enumerate(sol):
+                    sol_vector += k * np.array(vertex_surface_vectors[i])
+                regina_vec = [regina.LargeInteger(n) for n in sol_vector]
+                sol_surface = regina.NormalSurface(T, regina.NS_QUAD_CLOSED, regina_vec)
+                num_comp = count_components.SurfacetoOrbit(sol_surface).countcomponents()
+                if num_comp == 1:
+                    count += 1
+    return count
+
+
+def some_tests():
     M = snappy.Manifold('K13n586_nice.tri')
     CS = ConnectedSurfaces(M, -6)
     LW = CS.essential_faces_of_normal_polytope()
@@ -190,3 +232,8 @@ if __name__ == '__main__':
         # print('result', result)
         # result = test_all_subcol(SO, 3)
         # print(result)
+
+
+if __name__ == '__main__':
+    for n in range(2, 22):
+        print(extend_gen_fcn('s783', n))

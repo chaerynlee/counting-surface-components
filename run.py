@@ -413,6 +413,64 @@ def main_find_pattern_unknown():
     with open(directory + filename, 'wb') as file:
         pickle.dump(save, file)
 
+def main_find_pattern_unknown_separate():
+    i = int(os.environ['SLURM_ARRAY_TASK_ID'])
+
+    df_all = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
+
+    f = open(os.getcwd() + '/manifolds_with_least_LWfaces.txt')
+    mflds = f.read().split('\n')
+    df = df_all[df_all['name'].isin(mflds)]
+    M = df.iloc[i, df.columns.get_loc('name')]
+
+    # check if manifold already has results
+    for filename in os.listdir('/data/keeling/a/chaeryn2/patterns/'):
+        if M in filename:
+            return
+
+    TS = snappy.Manifold(df.iloc[i, df.columns.get_loc('tri_used')])
+    T = regina.Triangulation3(TS)
+    vector_info = df.iloc[i, df.columns.get_loc('vertex_surfaces')]
+    LWC_info = df.iloc[i, df.columns.get_loc('max_faces')]
+
+    for face_num, face in enumerate(eval(LWC_info)):
+        surface_names = face['verts']
+        if len(surface_names) == 1:
+            continue
+        else:
+            vertex_surface_vectors = [eval(vector_info)[name] for name in surface_names]
+            vertex_surfaces = [regina.NormalSurface(T, regina.NS_QUAD_CLOSED, vec) for vec in vertex_surface_vectors]
+            SO = SurfacetoOrbit(vertex_surfaces)
+            G = Pseudogroup(SO.pairings, SO.interval, SO.interval_divided)
+            G_copy = copy.deepcopy(G)
+
+            simplified_interval, simplified_pairings = G.reduce_amap()
+
+            # test all subcollections of size 2-6, stop if something is found
+            for n in range(2, 7):
+                result = test_all_subcol(simplified_interval, simplified_pairings, SO.num_vertex, n)
+                if result:
+                    save = {'manifold': M,
+                            'LW_complex': LWC_info,
+                            'orginal_psuedogroup': G_copy,
+                            'intervals': simplified_interval,
+                            'patterns': result}
+                    directory = '/data/keeling/a/chaeryn2/patterns/'
+                    filename = f'unknown_pattern_info_{M}_face{face_num}_subcoll{n}'
+                    with open(directory + filename, 'wb') as file:
+                        pickle.dump(save, file)
+                    break
+                else:
+                    save = {'manifold': M,
+                            'LW_complex': LWC_info,
+                            'orginal_psuedogroup': G_copy,
+                            'intervals': simplified_interval,
+                            'patterns': 'not_found'}
+                    directory = '/data/keeling/a/chaeryn2/patterns/'
+                    filename = f'unknown_pattern_info_{M}_face{face_num}_subcoll{n}'
+                    with open(directory + filename, 'wb') as file:
+                        pickle.dump(save, file)
+
 def main_find_pattern_by_genfcn():
     task = int(os.environ['SLURM_ARRAY_TASK_ID'])
 
@@ -493,4 +551,5 @@ def recreate_example(M):
         pickle.dump(save, file)
 
 if __name__ == '__main__':
-    main_find_pattern_unknown()
+    main_find_pattern_unknown_separate()
+    # recreate_example('o9_34491')
