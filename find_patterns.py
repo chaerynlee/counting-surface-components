@@ -1,6 +1,7 @@
 from count_components_manifold import *
 from orbits_manifold import *
 from Orbits import orbits
+from nscomplex_updated import faces, surfaces
 import count_components
 import os, itertools, random, math
 import pandas as pd
@@ -136,52 +137,97 @@ def test_all_subcol(interval, pairings, num_var, n=5):
             return subcollection
     return False
 
-def extend_gen_fcn(manifold, genus):
+# def extend_gen_fcn(manifold, genus):
+#     """
+#     For the given manifold, calculates the number of connected surfaces of the given genus.
+#     manifold must be a string of its name and must be contained in the data set 'very_large_combined.csv'
+#     """
+#     df = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
+#     i = df.index[df['name'] == manifold].values[0]
+#     TS = snappy.Manifold(df.iloc[i, df.columns.get_loc('tri_used')])
+#     T = regina.Triangulation3(TS)
+#     LWC_info = df.iloc[i, df.columns.get_loc('all_faces')]
+#     vector_info = df.iloc[i, df.columns.get_loc('vertex_surfaces')]
+#     genera_info = df.iloc[i, df.columns.get_loc('vertex_genera')]
+#
+#     count = 0
+#     for face in eval(LWC_info):
+#         # print('face', face)
+#         surface_names = face['verts']
+#         dim = face['dim']
+#
+#         vertex_surface_vectors = [eval(vector_info)[name] for name in surface_names]
+#         # print('vertex surfaces', vertex_surface_vectors)
+#         vertex_surface_genera = [eval(genera_info)[name] for name in surface_names]
+#         vertex_surfaces = [regina.NormalSurface(T, regina.NS_QUAD_CLOSED, vec) for vec in vertex_surface_vectors]
+#         vertex_surfaces_ns = [surfaces.NormalSurface(S, i) for i, S in enumerate(vertex_surfaces)]
+#         num_var = len(surface_names)
+#
+#         AF = faces.AdmissibleFace(dim, vertex_surfaces_ns)
+#         solutions = AF.surfaces_of_potential_genus_in_interior(genus)
+#         # print(len(solutions))
+#
+#         for sol in solutions:
+#             # print(sol)
+#             # print(sol.isConnected())
+#             num_comp = count_components.SurfacetoOrbit(sol).countcomponents()
+#             # print(num_comp)
+#             if num_comp == 1:
+#                 count += 1
+#     return count
+
+def extend_gen_fcn(manifold, genus, all=False):
     """
     For the given manifold, calculates the number of connected surfaces of the given genus.
     manifold must be a string of its name and must be contained in the data set 'very_large_combined.csv'
+    If all is set to True returns a list of all number of connected surfaces up to the given genus.
     """
-    # print('manifold', manifold)
-
     df = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
     i = df.index[df['name'] == manifold].values[0]
     TS = snappy.Manifold(df.iloc[i, df.columns.get_loc('tri_used')])
     T = regina.Triangulation3(TS)
-    LWC_info = df.iloc[i, df.columns.get_loc('max_faces')]
+    LWC_info = df.iloc[i, df.columns.get_loc('all_faces')]
     vector_info = df.iloc[i, df.columns.get_loc('vertex_surfaces')]
     genera_info = df.iloc[i, df.columns.get_loc('vertex_genera')]
 
+    if not all:
+        return count_conn_surfaces(LWC_info, T, genera_info, genus, vector_info)
+    if all:
+        counts = []
+        for g in range(2, genus + 1):
+            counts.append(count_conn_surfaces(LWC_info, T, genera_info, g, vector_info))
+        return counts
+
+def count_conn_surfaces(LWC_info, T, genera_info, genus, vector_info):
+    """
+    Helper function for extend_gen_fcn that constructs vertex surfaces from the given information for each LW-face,
+    finds all potential surfaces of the given genus then determines whether it is indeed connected.
+    Returns the count of all connected surfaces of the given genus.
+    """
     count = 0
     for face in eval(LWC_info):
         # print('face', face)
         surface_names = face['verts']
-        if len(surface_names) == 1:
-            # print('single vertex surface')
-            surface_genus = eval(genera_info)[surface_names[0]]
-            if surface_genus == genus:
-              count += 1
-        else:
-            # print('more than one vertex surface')
-            vertex_surface_vectors = [eval(vector_info)[name] for name in surface_names]
-            # print('vertex surfaces', vertex_surface_vectors)
-            vertex_surface_genera = [eval(genera_info)[name] for name in surface_names]
-            vertex_surfaces = [regina.NormalSurface(T, regina.NS_QUAD_CLOSED, vec) for vec in vertex_surface_vectors]
-            num_var = len(surface_names)
+        dim = face['dim']
 
-            # TODO
-            # is there a quick way to find all surfaces of given genus (all lattice points in cone of each lw-face)
-            # from just the vertex surface vectors?
-            solutions = [(1, 2), (3, 4), (5, 6)]  # just some random example to test code, should be replaced once TODO is solved
+        vertex_surface_vectors = [eval(vector_info)[name] for name in surface_names]
+        # print('vertex surfaces', vertex_surface_vectors)
+        vertex_surface_genera = [eval(genera_info)[name] for name in surface_names]
+        vertex_surfaces = [regina.NormalSurface(T, regina.NS_QUAD_CLOSED, vec) for vec in vertex_surface_vectors]
+        vertex_surfaces_ns = [surfaces.NormalSurface(S, i) for i, S in enumerate(vertex_surfaces)]
+        num_var = len(surface_names)
 
-            for sol in solutions:
-                sol_vector = np.zeros(len(vertex_surface_vectors[0]))
-                for i, k in enumerate(sol):
-                    sol_vector += k * np.array(vertex_surface_vectors[i])
-                regina_vec = [regina.LargeInteger(n) for n in sol_vector]
-                sol_surface = regina.NormalSurface(T, regina.NS_QUAD_CLOSED, regina_vec)
-                num_comp = count_components.SurfacetoOrbit(sol_surface).countcomponents()
-                if num_comp == 1:
-                    count += 1
+        AF = faces.AdmissibleFace(dim, vertex_surfaces_ns)
+        solutions = AF.surfaces_of_potential_genus_in_interior(genus)
+        # print(len(solutions))
+
+        for sol in solutions:
+            # print(sol)
+            # print(sol.isConnected())
+            num_comp = count_components.SurfacetoOrbit(sol).countcomponents()
+            # print(num_comp)
+            if num_comp == 1:
+                count += 1
     return count
 
 
@@ -235,5 +281,19 @@ def some_tests():
 
 
 if __name__ == '__main__':
-    for n in range(2, 22):
-        print(extend_gen_fcn('s783', n))
+    # test all manifolds to check if extend_gen_fcn is correct
+
+    df = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
+    for i in range(541, len(df.index)):
+        M = df.iloc[i, df.columns.get_loc('name')]
+        actual_count = eval(df.iloc[i, df.columns.get_loc('by_genus')])
+        count = extend_gen_fcn(M, 21, all=True)
+        print(M, actual_count == count)
+    # checked until K13n517
+    #
+    # M = 't11892'
+    # df = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
+    # i = df.index[df['name'] == M].values[0]
+    # print(df.iloc[i, df.columns.get_loc('by_genus')])
+    # print(extend_gen_fcn(M, 21, all=True))
+

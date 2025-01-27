@@ -120,8 +120,8 @@ class SurfaceComponentCount:
 
 def main():
     import snappy, regina
-    import nscomplex
-    M = snappy.Manifold('K13n586')
+    import nscomplex_updated
+    M = snappy.Manifold('v2946')
     CS = ConnectedSurfaces(M, -6)
     LW = CS.essential_faces_of_normal_polytope()
     LW_faces = LW.maximal

@@ -97,11 +97,12 @@ class AdmissibleFace(object):
     the vertex link, the associated cone is stored in quad coordinates
     rather than triangle-quad coordinates to keep the dimension down.
     """
-    def __init__(self, dim, zero_set, vertex_surfaces):
+    def __init__(self, dim, vertex_surfaces):  # originally had zero_set as input
         self.dim = dim  # dimension of the face, not the cone
-        self.zero_set = zero_set
+        # self.zero_set = zero_set
         self.F0 = F0 = vertex_surfaces[0]
-        self.num_tets = F0.triangulation.countTetrahedra()
+        T = F0.triangulation
+        self.num_tets = T.countTetrahedra()
         self.vertex_surfaces = vertex_surfaces
         self.euler_one_vertices = []
         for F in self.vertex_surfaces:
@@ -180,6 +181,16 @@ class AdmissibleFace(object):
             if S.isConnected():
                 ans.append(S)
         return len(ans)
+
+    def surfaces_of_potential_genus_in_interior(self, genus):
+        euler = 2 - 2*genus
+        T = self.F0.triangulation
+        ans = []
+        for quad_vec in self._quad_vectors_in_interior(euler):
+            S = regina_util.normal_surface_from_quads(T, quad_vec)
+            assert regina_util.to_int(S.eulerChar()) == euler
+            ans.append(S)
+        return ans
 
 
 def admissible_faces(surfaces,

@@ -1,6 +1,6 @@
 #! /data/keeling/a/nmd/miniconda3/envs/sage_full/bin/sage-python -u
 
-#SBATCH --array=0-75
+#SBATCH --array=0-49
 #SBATCH --partition m
 #SBATCH --tasks=1
 #SBATCH --mem-per-cpu=4G
@@ -550,6 +550,26 @@ def recreate_example(M):
     with open(filename, 'wb') as file:
         pickle.dump(save, file)
 
+def check_extend_gen_fcn():
+    task = int(os.environ['SLURM_ARRAY_TASK_ID'])
+
+    df = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
+
+    for i in range(910+task, len(df.index), 50):
+        M = df.iloc[i, df.columns.get_loc('name')]
+        actual_count = eval(df.iloc[i, df.columns.get_loc('by_genus')])
+        count = extend_gen_fcn(M, 21, all=True)
+        save = {'manifold': M,
+                'count': count,
+                'actual_count': actual_count,
+                'match': actual_count == count}
+
+        directory = '/data/keeling/a/chaeryn2/patterns/'
+        filename = f'gen_fcn_{M}'
+        with open(directory + filename, 'wb') as file:
+            pickle.dump(save, file)
+
 if __name__ == '__main__':
-    main_find_pattern_unknown_separate()
+    check_extend_gen_fcn()
+    # main_find_pattern_unknown_separate()
     # recreate_example('o9_34491')
