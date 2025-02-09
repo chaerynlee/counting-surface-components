@@ -9,9 +9,17 @@ import numpy as np
 import snappy.snap.t3mlite as t3m
 
 def evaluate_interval(interval, assign):
+    """
+    Evaluates given interval with the variables in assign (must be a dictionary with the right variable names)
+    and returns an orbits.Interval.
+    """
     return orbits.Interval(interval.start.evaluate(**assign) + 1, interval.end.evaluate(**assign))
 
 def evaluate_pairing(pairing, assign):
+    """
+    Evaluates given pairing with the variables in assign (must be a dictionary with the right variable names)
+    and returns an orbits.Pairing.
+    """
     domain_start = pairing.domain.start.evaluate(**assign)
     domain_end = pairing.domain.end.evaluate(**assign)
     iso_shift = pairing.isometry.shift.evaluate(**assign)
@@ -44,6 +52,7 @@ def evaluate_pseudogroup(interval, pairings, assign):
 def significant_col(interval, pairings, num_var, subcollection_indices, var_range=50):
     """
     Returns True or False depending on whether the given subcollection of pairings is significant.
+    By default, evaluates the original collection and subcollection of pairings for all variables up to 50.
     The subcollection is given as their indices not as pairings themselves.
     """
     subcollection = [pairings[i] for i in subcollection_indices]
@@ -180,7 +189,7 @@ def extend_gen_fcn(manifold, genus, all=False):
     """
     For the given manifold, calculates the number of connected surfaces of the given genus.
     manifold must be a string of its name and must be contained in the data set 'very_large_combined.csv'
-    If all is set to True returns a list of all number of connected surfaces up to the given genus.
+    If all is set to True returns a list of all numbers of connected surfaces up to the given genus.
     """
     df = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
     i = df.index[df['name'] == manifold].values[0]
@@ -229,7 +238,6 @@ def count_conn_surfaces(LWC_info, T, genera_info, genus, vector_info):
             if num_comp == 1:
                 count += 1
     return count
-
 
 def some_tests():
     M = snappy.Manifold('K13n586_nice.tri')
@@ -284,16 +292,15 @@ if __name__ == '__main__':
     # test all manifolds to check if extend_gen_fcn is correct
 
     df = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
-    for i in range(541, len(df.index)):
+    for i in range(1, len(df.index)):
         M = df.iloc[i, df.columns.get_loc('name')]
         actual_count = eval(df.iloc[i, df.columns.get_loc('by_genus')])
         count = extend_gen_fcn(M, 21, all=True)
         print(M, actual_count == count)
     # checked until K13n517
-    #
+
     # M = 't11892'
     # df = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
     # i = df.index[df['name'] == M].values[0]
     # print(df.iloc[i, df.columns.get_loc('by_genus')])
     # print(extend_gen_fcn(M, 21, all=True))
-

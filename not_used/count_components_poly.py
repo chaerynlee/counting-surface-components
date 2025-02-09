@@ -6,6 +6,9 @@ from nscomplex_updated import *
 import orbits_poly
 import pickle
 
+# count_components_poly, orbits_poly both make use of the sage polynomials from PolynomialRing
+# didn't function well so wrote Polynomial class from scratch to work with
+
 class SurfacetoOrbit:
     '''
     Constructs a general linear combination given a list of surfaces (will be vertex surfaces of a certain face in a LW complex)

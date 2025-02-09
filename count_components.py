@@ -1,5 +1,4 @@
 import pickle
-
 import snappy
 import regina
 import pandas as pd

@@ -1,11 +1,33 @@
-from __future__ import print_function
+#   This file is part of the program Orbits.
+#
+#   Copyright (C) 2014-2017 by Marc Culler and others. 
+#
+#   This program is free software: you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License as published by
+#   the Free Software Foundation, either version 2 of the License, or
+#   (at your option) any later version.
+#
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License for more details.
+#
+#   You should have received a copy of the GNU General Public License
+#   along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+#   Project homepage: https://bitbucket.org/marc_culler/AHTorbits
+#   Author homepage: http://marc-culler.info
+
+# from collections import Iterable
 from functools import total_ordering
-Illegal = Exception("Illegal Operation")
+
+class Illegal(Exception):
+    pass
 
 def gcd(x, y):
     if x == 0:
         if y == 0:
-            raise ValueError("gcd(0,0) is undefined.")
+            raise ValueError('gcd(0,0) is undefined.')
         else:
             return abs(y)
     x = abs(x)
@@ -16,30 +38,27 @@ def gcd(x, y):
         y = r
     return x
 
-@total_ordering
-class Interval:
+class Interval(tuple):
     """
     A finite subinterval of the integers.
     """
-    def __init__(self, a, b):
-        self.start = min(a,b)
-        self.end = max(a,b)
-        self.width = self.end - self.start + 1
 
+    def __new__(cls, a, b):
+        return super(Interval, cls).__new__(cls, (min(a,b), max(a,b)))
+    
+    def __init__(self, a, b):
+        self.start = self[0]
+        self.end = self[1]
+        self.width = self.end - self.start + 1
+        
     def __repr__(self):
         return '[%d, %d]'%(self.start, self.end)
-
-    def __eq__(self, other):
-        return (self.start, self.end) == (other.start, other.end)
-
-    def __lt__(self, other):
-        return (self.start, self.end) < (other.start, other.end)
 
     def __contains__(self, x):
         """
         True if the Interval contains the integer or Interval argument.
         """
-        if isinstance(x, int):
+        if isinstance(x, int) :
             return self.start <= x <= self.end
         else:
             return self.start <= x.start and x.end <= self.end
@@ -62,33 +81,34 @@ class Interval:
     def set_start(self, start):
         self.start = start
         self.width = self.end - self.start + 1
-
+        
 def ToInterval(x):
     """
     Converts an integer or a 2-tuple to an Interval.
     """
-    if x.__class__ == Interval:
+    if isinstance(x, Interval):
         return x
-    if isinstance(x, int):
+    elif isinstance(x, int):
         return Interval(x,x)
+    elif isinstance(x, Iterable):
+        return Interval(*x)
     else:
-        return Interval(x[0],x[1])
-
+        raise ValueError('Cannot create an interval from %s.'%x)
+    
 class Isometry:
     """
     An element of the infinite dihedral group acting on the integers.
     """
+    
     def __init__(self, shift, flip=0):
         self.shift, self.flip = shift, flip
-
-    def __eq__(self, other):
-        return self.shift == other.shift and self.flip == other.flip
 
     def __repr__(self):
         if self.flip:
             return 'x -> -x + %d'%self.shift
         else:
             return 'x -> x + %d'%self.shift
+        
 
     def __mul__(self, other):
         """
@@ -121,7 +141,7 @@ class Isometry:
             return Isometry(self.shift, self.flip)
         else:
             return Isometry(-self.shift, self.flip)
-
+    
     def __call__(self, x):
         """
         An Isometry as a mapping (of an integer or an interval).
@@ -131,19 +151,20 @@ class Isometry:
                 return -x + self.shift
             else:
                 return x + self.shift
-        if x.__class__ == Interval:
+        elif isinstance(x, Interval):
             return Interval(self(x.start), self(x.end))
+        else:
+            raise ValueError('Cannot evaluate %s on %s'%(self, x))
 
 @total_ordering
 class Pairing:
     """
     The restriction of an isometry to a finite interval.
     """
+    
     def __init__(self, domain, isometry):
         self.domain, self.isometry = domain, isometry
         self.range = self(self.domain)
-        self.complexity = (self.range.end, self.domain.width,
-                           self.domain.start, self.isometry.flip)
 
     def __repr__(self):
         if self.isometry.flip:
@@ -157,23 +178,20 @@ class Pairing:
         A Pairing as a mapping.
         """
         if not x in self.domain:
-            raise Illegal("Operand is not contained in domain.")
+            raise Illegal('Operand is not contained in domain.')
         else:
             return self.isometry(x)
 
+    def _complexity(self):
+        return -self.range.end, -self.domain.width, self.domain.start, self.isometry.flip
+    
     def __eq__(self, other):
-        return self.domain == other.domain and self.isometry == other.isometry
+        return self._complexity() == other._complexity()
 
     def __lt__(self, other):
-        if self.range.end != other.range.end:
-            return self.range.end > other.range.end
-        if self.domain.width != other.domain.width:
-            return self.domain.width > other.domain.width
-        if self.domain.start != other.domain.start:
-            return self.domain.start < other.domain.start
-        return self.isometry.flip < other.isometry.flip
-
-    def __contains__(self,x):
+        return self._complexity() < other._complexity()
+    
+    def __contains__(self, x):
         """
         True if the argument is contained in either the domain or range.
         """
@@ -194,21 +212,19 @@ class Pairing:
 
     def is_trivial(self):
         """
-        True if the Pairing is a restriction of the identity map.
+        True if the Pairing is  restriction of the identity map.
         """
-        if self.is_preserving:
-            return self.isometry.shift == 0
-        else:
-            return self.domain.width == 1 and self.domain == self.range
-
+        return (self.is_preserving and self.isometry.shift == 0 or
+                self.domain.width == 1 and self.domain == self.range)
+    
     def contract(self,I):
         """
         Adjust the Pairing to account for removal of a static interval.
         """
         I = ToInterval(I)
         if I ^ self.domain or I ^ self.range:
-            raise Illegal("Contraction interval is not static.")
-        shift = Isometry(-I.width)
+            raise Illegal('Contraction interval is not static.')
+        shift = Isometry( -I.width )
         if I.end < self.domain.start:
             return Pairing(shift(self.domain), shift * self.isometry * ~shift)
         elif I.end < self.range.start:
@@ -234,7 +250,7 @@ class Pairing:
 
     def merge(self, other):
         """
-        Merge a periodic Pairing with an overlapping orientation
+        Merge a periodic Pairing with an overlapping orientation 
         preserving Pairing.
         """
         if self.is_periodic() and other.is_preserving():
@@ -248,26 +264,7 @@ class Pairing:
             else:
                 return None
         else:
-            raise Illegal("Pairing cannot be merged.")
-
-    def merge(self, other):
-        """
-        Rewritten version of original merge function so that it only applies to periodic pairings.
-        Based on Lemma 9  of AHT
-        """
-        if self.is_periodic() and other.is_periodic():
-            R1 = Interval(self.domain.start, self.range.end)
-            R2 = Interval(other.domain.start, other.range.end)
-            I = R1 ^ R2
-            shift = gcd(self.isometry.shift, other.isometry.shift)
-            if I.width >= self.isometry.shift + other.isometry.shift :
-                domain = Interval(min(R1.start, R2.start), max(R1.end, R2.end) - shift)
-                isometry = Isometry(shift)
-                return Pairing(domain, isometry)
-            else:
-                return None
-        else:
-            raise Illegal("Pairing cannot be merged.")
+            raise Illegal('Pairing cannot be merged.')
 
     def transmit(self, other):
         """
@@ -295,7 +292,7 @@ class Pairing:
             isometry = isometry**(-1)
             domain = range
         return Pairing(domain, isometry)
-
+            
 def Shift(domain, range):
     """
     Constructor for an orientation preserving pairing, given the domain
@@ -306,7 +303,7 @@ def Shift(domain, range):
     if range.__class__ != Interval:
         range = Interval(range[0], range[1])
     if domain.width != range.width:
-        raise Illegal("The domain and range must have the same width.")
+        raise Illegal('The domain and range must have the same width.')
     if range.start < domain.start:
         domain, range = range, domain
     isometry = Isometry(range.start - domain.start)
@@ -322,7 +319,7 @@ def Flip(domain, range):
     if range.__class__ != Interval:
         range = Interval(range[0], range[1])
     if domain.width != range.width:
-        raise Illegal("The domain and range must have the same width.")
+        raise Illegal('The domain and range must have the same width.')
     if range.start < domain.start:
         domain, range = range, domain
     isometry = Isometry(range.end + domain.start, 1)
@@ -331,27 +328,27 @@ def Flip(domain, range):
 class Pseudogroup:
     """
     Pseudogroup(P,U) is the pseudogroup of maps of the interval U which
-    is generated by the Pairings in the list P.
+    is generated by the Pairings in the list P.  
     """
     def __init__(self, pairings, universe=None):
         self.pairings = pairings
         start = min([p.domain.start for p in self.pairings])
         end = max([p.range.end for p in self.pairings])
-        if universe:
+        if universe: 
             universe = ToInterval(universe)
             if start < universe.start or end > universe.end:
-                raise ValueError("Universe must contain all domains and ranges.")
+                raise ValueError('Universe must contain all domains and ranges.')
             self.universe = universe
         else:
             self.universe = Interval(start, end)
-
+        
     def __repr__(self):
         result = 'Pseudogroup on %s:\n'%str(self.universe)
         if self.pairings:
             self.pairings.sort()
             for pairing in self.pairings:
                 result += str(pairing) + '\n'
-        return result
+        return result 
 
     def clean(self):
         """
@@ -405,7 +402,7 @@ class Pseudogroup:
             self.universe.set_end(self.universe.end - I.width)
             I = self.static()
         return result
-
+    
     def merge(self):
         """
         Merge periodic pairing whenever possible.
@@ -414,16 +411,16 @@ class Pseudogroup:
              return
         done=0
         while not done:
-            done = 1
             periodics = [p for p in self.pairings if p.is_periodic()]
+            done=1
             for p in periodics[:-1]:
                 for q in periodics[1+periodics.index(p):]:
-                    g = None
+                    g = None 
                     try:
                         g = p.merge(q)
                     except: pass
                     if g:
-                        self.pairings.remove(p)
+                        self.pairings.remove(p) 
                         self.pairings.remove(q)
                         self.pairings.append(g)
                         done=0
@@ -433,6 +430,7 @@ class Pseudogroup:
                     else:
                         continue
                 break
+
 
     def transmit(self):
         """
@@ -453,7 +451,7 @@ class Pseudogroup:
         else:
             support_end = g.range.start - 1
         if support_end < g.range.start:
-            self.universe.set_end(g.range.start - 1)
+            self.universe.set_end(g.range.start - 1)  # changed from support_end to g.range.start - 1
             return
         if not g.is_preserving():
             g.trim()
@@ -470,21 +468,19 @@ class Pseudogroup:
         self.clean()
         if len(self.pairings) == 0:
             self.pairings = None
-            # print('last step')
-            # print('length universe', self.universe.width)
             return self.universe.width
-        # print("cleaned\n", self)
+        #print("cleaned\n", self)
         count = self.contract()
-        # print("contracted\n", self)
+        #print("contracted\n", self)
         self.trim()
-        # print("trimmed\n", self)
+        #print("trimmed\n", self)
         self.merge()
-        # print("merged\n", self)
+        #print("merged\n", self)
         self.transmit()
-        # print("transmitted\n", self)
+        #print("transmitted\n", self)
         self.truncate()
-        # print("truncated\n", self)
-        # print('count = ', count)
+        #print("truncated\n", self)
+        #print('count = ', count)
         return count
 
     def reduce(self):
@@ -492,15 +488,6 @@ class Pseudogroup:
         Reduce the pseudogroup to nothing.  Return the number of orbits.
         """
         count = 0
-        while self.pairings and len(self.pairings) != 0:
+        while self.pairings != None:
             count += self.simplify()
-            # print(self.universe)
-            # print(self.pairings)
-            # print(count)
-            # print()
-        if self.pairings == None:
-            return count
-        elif len(self.pairings) == 0:
-            self.pairings = None
-            count += self.universe.width
-            return count
+        return count

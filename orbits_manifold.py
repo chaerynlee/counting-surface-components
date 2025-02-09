@@ -5,7 +5,6 @@ import pickle
 
 Illegal = Exception("Illegal Operation")
 
-
 class Polynomial:
     def __init__(self, constant=0, **poly):
         self.poly = poly  # dictionary with keys: variables, values: coefficient
@@ -703,7 +702,7 @@ class Pseudogroup:
 
     def identify_edge_containing(self, interval):
         """
-        For the given interval, find a pairing that has that it as its domain or range.
+        For the given interval, find a pairing that has that as its domain or range.
         If no such pairing exists return False.
         """
         if not isinstance(interval, Interval):
@@ -717,7 +716,8 @@ class Pseudogroup:
 
     def peel_edge(self, edge_index):
         """
-        Removes subinterval of given edge index from divided universe (makes it into an empty interval, the corresponding edge index is maintained)
+        Removes subinterval of given edge index from divided universe (makes it into an empty interval,
+        the corresponding edge index is maintained)
         Translates parings to accommodate for this removal.
         """
         interval = self.divided_universe[edge_index]
@@ -805,7 +805,8 @@ class Pseudogroup:
 
     def gcd_candidates_rev_type1(self, edge_index):
         """
-        Finds an orientation reversing pairing that identifies the two halves of the subinterval at given index.
+        Looks for a pairing described below, this makes up the orientation reversing gcd picture combined with gcd_candidates_rev_type2.
+        : finds an orientation reversing pairing that identifies the two halves of the subinterval at given index.
         Returns False if no such pairing exists.
         """
         subinterval = self.divided_universe[edge_index]
@@ -818,6 +819,7 @@ class Pseudogroup:
 
     def gcd_candidates_rev_type2(self, edge_index):
         """
+        Looks for a pairing described below, this makes up the orientation reversing  gcd picture combined with gcd_candidates_rev_type1.
         Finds pairs of orientation reversing pairings whose domains and ranges are all disjoint and union make up the entire subinterval.
         Returns False if no such pairs of pairings exist.
         """
@@ -849,7 +851,8 @@ class Pseudogroup:
 
     def gcd_candidates_pre(self, edge_index):
         """
-        Finds pairs of orientation preserving pairings whose domains are disjoint and union make up the entire subinterval and whose range
+        Looks for 3 pairings described below that make up the orientation preserving gcd picture
+        : finds pairs of orientation preserving pairings whose domains are disjoint and union make up the entire subinterval and whose range
         have the same property.
         Returns False if no such pairs of pairings exist.
         """
@@ -873,7 +876,162 @@ class Pseudogroup:
         else:
             return candidates
 
-    # All functions that follow are ones used in the old version of simplify
+    def simplify_transmit(self):
+        """
+        Simplifies the pseudogroup by transmitting pairings on edges where there exists a pairing sending the entire
+        edge to another one.
+        """
+        # print statements to check pseudogroup
+        # print('universe:', self.universe)
+        # print('divided universe:', self.divided_universe)
+        # print('pairings:', len(self.pairings))
+        # for p in self.pairings:
+        #     print(p)
+        # print()
+        # for i, I in enumerate(self.divided_universe):
+        #     print(i, I.width, I, self.identify_edge_containing(I))
+
+        transmitted_edges = []
+        for i, I in enumerate(self.divided_universe):
+            if self.identify_edge_containing(I):
+                transmitted_edges.append(i)
+                base_pairing = self.identify_edge_containing(I)
+
+                pairings_on_edge = []
+                for p in self.pairings:
+                    if p.domain_index == i or p.range_index == i:
+                        pairings_on_edge.append(p)
+
+                self.pairings = [p for p in self.pairings if p not in pairings_on_edge]
+
+                for p in pairings_on_edge:
+                    new_p = base_pairing.transmit_inclusive(p)
+                    if new_p.domain_index == i or new_p.range_index == i:
+                        new_p = base_pairing.transmit_inclusive(new_p)
+                        # weird case where domain/range of pairing are both included in domain/range of base_pairing and does the transmission
+                        # the other way round, i.e. base_pairing: 2 -> 5, pairing: 5 -> 2, unluckily got 5 -> 5 so transmit again to get 2 -> 2
+                    self.pairings.append(new_p)
+                self.clean()
+
+        for i in range(len(self.divided_universe)):
+            if i in transmitted_edges:
+                self.peel_edge(i)
+        self.clean()
+        self.pairings.sort()
+
+        # print statements to check pseudogroup
+        # print()
+        # print('universe:', self.universe)
+        # print('divided universe:', self.divided_universe)
+        # print('peeled pairings:', len(self.pairings))
+        # for p in self.pairings:
+        #     print(p.domain.width, '/', p.isometry, '/', p)
+
+    def find_candidates(self):
+        """
+        Looks for the gcd picture amongst the remaining pairings.
+        If there are such pairings returns those pairings, otherwise returns False.
+        """
+        self.trim()
+        self.clean()
+        candidates_exist = False
+        redundant_edges = self.find_redundant_edges()
+        # print('redundant_edges:', redundant_edges)
+        for i in range(len(self.divided_universe)):
+            if i not in redundant_edges:
+                if self.gcd_candidates_rev_type1(i) and self.gcd_candidates_rev_type2(i):
+                    candidates_exist = True
+                    # print('candidate ori rev 1', self.gcd_candidates_rev_type1(i))
+                    # print('candidate ori rev 2')
+                    # for pairs in self.gcd_candidates_rev_type2(i):
+                        # print(pairs)
+                    return [self.gcd_candidates_rev_type1(i), self.gcd_candidates_rev_type2(i)]
+                if self.gcd_candidates_pre(i):
+                    candidates_exist = True
+                    # print('candidate ori pre')
+                    # for pairs in self.gcd_candidates_pre(i):
+                        # print(pairs)
+                    return self.gcd_candidates_pre(i)
+        if not candidates_exist:
+            # print('No candidates')
+            return False
+
+        # endpoints_dup = []
+        # endpoints = []
+        # for p in self.pairings:
+        #     endpoints_dup.append(p.domain.start)
+        #     endpoints_dup.append(p.domain.end)
+        #     endpoints_dup.append(p.range.start)
+        #     endpoints_dup.append(p.range.end)
+        # for pt in endpoints_dup:
+        #     if pt not in endpoints:
+        #         endpoints.append(pt)
+        # endpoints = sorted(endpoints)
+        #
+        # print()
+        # print(len(endpoints))
+        # for pt in endpoints:
+        #     print(pt)
+
+        # # Check how many subintervals these points lie in to find an appropriate subinterval to transmit pairings into (not helpful)
+        # count_dict = dict()
+        # for pt in endpoints:
+        #     count, unknown = self.num_pairings_including(pt, self.pairings)
+        #     # print(pt, count, unknown)
+        #     if count in count_dict:
+        #         if pt not in count_dict[count]:
+        #             count_dict[count].append(pt)
+        #     else:
+        #         count_dict[count] = [pt]
+        # count_dict = dict(sorted(count_dict.items()))
+        # # for key in count_dict:
+        #     # print(key, count_dict[key])
+
+    def reduce(self):
+        """
+        Does simplify_transmit() as much as possible until no subintervals can be transmitted.
+        Then attempts to find the gcd picture with find_candidates().
+        """
+        transmission_possible = True
+        while transmission_possible:
+            self.simplify_transmit()
+            transmission_possible = False
+            for I in self.divided_universe:
+                if not self.identify_edge_containing(I):
+                    possible_transmissions = True
+                    break
+        return self.find_candidates()
+
+    def reduce_amap(self):
+        """
+        Does simplify_transmit() as much as possible until no subintervals can be transmitted.
+        Returns the interval(universe) and pairings as a result.
+        """
+        transmission_possible = True
+        while transmission_possible:
+            self.simplify_transmit()
+            transmission_possible = False
+            for I in self.divided_universe:
+                if not self.identify_edge_containing(I):
+                    possible_transmissions = True
+                    break
+        return self.universe, self.pairings
+
+
+
+
+
+# Below are some functions that are no longer used for Pseudogroup
+# Saved in case of future use
+class Pseudogroup_notused:
+    def __init__(self, pairings, universe, divided_universe):
+        self.pairings = pairings
+        if isinstance(universe, Interval):
+            self.universe = universe
+        else:
+            self.universe = ToInterval(universe)
+        self.divided_universe = [ToInterval(I) for I in divided_universe]
+
     def static_left(self):
         """
         Find a leftmost static interval if there is one.
@@ -1179,136 +1337,3 @@ class Pseudogroup:
         #             print(type(nextinterval))
 
         return count
-
-    def simplify_transmit(self):
-        # TO-DO (2/6)
-        # - things to consider when simplifying: combine pairings of the same isometry but with disjoint domain/range,
-        # remove any pairings that have same isometry but smaller domain/range (i.e. pairings included in others)
-
-        # TO-DO (2/13)
-        # - wrote code to find any redundant edges, may fail in some cases
-
-        # print statements to check pseudogroup
-        # print('universe:', self.universe)
-        # print('divided universe:', self.divided_universe)
-        # print('pairings:', len(self.pairings))
-        # for p in self.pairings:
-        #     print(p)
-        # print()
-        # for i, I in enumerate(self.divided_universe):
-        #     print(i, I.width, I, self.identify_edge_containing(I))
-
-        # transmit pairings on edges where there exists a pairing sending the entire edge to another
-        transmitted_edges = []
-        for i, I in enumerate(self.divided_universe):
-            if self.identify_edge_containing(I):
-                transmitted_edges.append(i)
-                base_pairing = self.identify_edge_containing(I)
-
-                pairings_on_edge = []
-                for p in self.pairings:
-                    if p.domain_index == i or p.range_index == i:
-                        pairings_on_edge.append(p)
-
-                self.pairings = [p for p in self.pairings if p not in pairings_on_edge]
-
-                for p in pairings_on_edge:
-                    new_p = base_pairing.transmit_inclusive(p)
-                    if new_p.domain_index == i or new_p.range_index == i:
-                        new_p = base_pairing.transmit_inclusive(new_p)
-                        # weird case where domain/range of pairing are both included in domain/range of base_pairing and does the transmission
-                        # the other way round, i.e. base_pairing: 2 -> 5, pairing: 5 -> 2, unluckily got 5 -> 5 so transmit again to get 2 -> 2
-                    self.pairings.append(new_p)
-                self.clean()
-
-        for i in range(len(self.divided_universe)):
-            if i in transmitted_edges:
-                self.peel_edge(i)
-        self.clean()
-        self.pairings.sort()
-
-        # print statements to check pseudogroup
-        # print()
-        # print('universe:', self.universe)
-        # print('divided universe:', self.divided_universe)
-        # print('peeled pairings:', len(self.pairings))
-        # for p in self.pairings:
-        #     print(p.domain.width, '/', p.isometry, '/', p)
-
-    def find_candidates(self):
-        self.trim()
-        self.clean()
-        candidates_exist = False
-        redundant_edges = self.find_redundant_edges()
-        # print('redundant_edges:', redundant_edges)
-        for i in range(len(self.divided_universe)):
-            if i not in redundant_edges:
-                if self.gcd_candidates_rev_type1(i) and self.gcd_candidates_rev_type2(i):
-                    candidates_exist = True
-                    # print('candidate ori rev 1', self.gcd_candidates_rev_type1(i))
-                    # print('candidate ori rev 2')
-                    # for pairs in self.gcd_candidates_rev_type2(i):
-                        # print(pairs)
-                    return [self.gcd_candidates_rev_type1(i), self.gcd_candidates_rev_type2(i)]
-                if self.gcd_candidates_pre(i):
-                    candidates_exist = True
-                    # print('candidate ori pre')
-                    # for pairs in self.gcd_candidates_pre(i):
-                        # print(pairs)
-                    return self.gcd_candidates_pre(i)
-        if not candidates_exist:
-            # print('No candidates')
-            return False
-
-        # endpoints_dup = []
-        # endpoints = []
-        # for p in self.pairings:
-        #     endpoints_dup.append(p.domain.start)
-        #     endpoints_dup.append(p.domain.end)
-        #     endpoints_dup.append(p.range.start)
-        #     endpoints_dup.append(p.range.end)
-        # for pt in endpoints_dup:
-        #     if pt not in endpoints:
-        #         endpoints.append(pt)
-        # endpoints = sorted(endpoints)
-        #
-        # print()
-        # print(len(endpoints))
-        # for pt in endpoints:
-        #     print(pt)
-
-        # # Check how many subintervals these points lie in to find an appropriate subinterval to transmit pairings into (not helpful)
-        # count_dict = dict()
-        # for pt in endpoints:
-        #     count, unknown = self.num_pairings_including(pt, self.pairings)
-        #     # print(pt, count, unknown)
-        #     if count in count_dict:
-        #         if pt not in count_dict[count]:
-        #             count_dict[count].append(pt)
-        #     else:
-        #         count_dict[count] = [pt]
-        # count_dict = dict(sorted(count_dict.items()))
-        # # for key in count_dict:
-        #     # print(key, count_dict[key])
-
-    def reduce(self):
-        transmission_possible = True
-        while transmission_possible:
-            self.simplify_transmit()
-            transmission_possible = False
-            for I in self.divided_universe:
-                if not self.identify_edge_containing(I):
-                    possible_transmissions = True
-                    break
-        return self.find_candidates()
-
-    def reduce_amap(self):
-        transmission_possible = True
-        while transmission_possible:
-            self.simplify_transmit()
-            transmission_possible = False
-            for I in self.divided_universe:
-                if not self.identify_edge_containing(I):
-                    possible_transmissions = True
-                    break
-        return self.universe, self.pairings

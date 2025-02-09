@@ -1,6 +1,6 @@
 #! /data/keeling/a/nmd/miniconda3/envs/sage_full/bin/sage-python -u
 
-#SBATCH --array=0-49
+#SBATCH --array=0-76
 #SBATCH --partition m
 #SBATCH --tasks=1
 #SBATCH --mem-per-cpu=4G
@@ -19,35 +19,42 @@ import pandas as pd
 import snappy.snap.t3mlite as t3m
 import copy
 
-def aht_for_manifolds():
-    df = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
-    index = df.index[df['name'] == 't12199'].values[0]
-    pattern = df['gen_func'].iloc[index]
-    df_pattern = df[df['gen_func'] == pattern]
-    mflds = df_pattern['name'].tolist()
-
-    # ran until index 166 (needed higher euler bound for ConnectedSurfaces)
-    # was successful for 'o9_44238'
-    for name in mflds:
-        print(name)
-        M = snappy.Manifold(name)
-        CS = ConnectedSurfaces(M)
-        LW = CS.essential_faces_of_normal_polytope()
-        LW_faces = LW.maximal
-        for i in range(len(LW_faces)):
-            vs = LW_faces[i].vertex_surfaces
-            vs_regina_list = [S.surface for S in vs]
-            SO = SurfacetoOrbit(vs_regina_list)
-            G = Pseudogroup(SO.pairings, SO.interval, SO.interval_divided)
-            G.reduce()
-
-    # with open('example_default_tri.pickle', 'rb') as f:
-    #     eg_int, ed_int_div, eg_pairings = pickle.load(f)
-    #
-    # G = Pseudogroup(eg_pairings, eg_int, ed_int_div)
-    # G.reduce()
+# def aht_for_manifolds():
+#     df = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
+#     index = df.index[df['name'] == 't12199'].values[0]
+#     pattern = df['gen_func'].iloc[index]
+#     df_pattern = df[df['gen_func'] == pattern]
+#     mflds = df_pattern['name'].tolist()
+#
+#     # ran until index 166 (needed higher euler bound for ConnectedSurfaces)
+#     # was successful for 'o9_44238'
+#     for name in mflds:
+#         print(name)
+#         M = snappy.Manifold(name)
+#         CS = ConnectedSurfaces(M)
+#         LW = CS.essential_faces_of_normal_polytope()
+#         LW_faces = LW.maximal
+#         for i in range(len(LW_faces)):
+#             vs = LW_faces[i].vertex_surfaces
+#             vs_regina_list = [S.surface for S in vs]
+#             SO = SurfacetoOrbit(vs_regina_list)
+#             G = Pseudogroup(SO.pairings, SO.interval, SO.interval_divided)
+#             G.reduce()
+#
+#     # with open('example_default_tri.pickle', 'rb') as f:
+#     #     eg_int, ed_int_div, eg_pairings = pickle.load(f)
+#     #
+#     # G = Pseudogroup(eg_pairings, eg_int, ed_int_div)
+#     # G.reduce()
 
 def aht_randomize(M):
+    """
+    Applies the 'AHT algorithm that looks for the gcd pattern' for each set of vertex surfaces of a LW face in the LW complex
+    of the given manifold M.
+    Terminates and saves the information if there is any set of vertex surfaces that has the gcd pattern.
+    Randomizes the triangulation of the manifold each time until a set of vertex surfaces is found.
+    (This was used to check if the algorithm works with manifolds whose generating functions are known to have the gcd pattern)
+    """
     # M: snappy manifold
     tri_found = False
     tri_isosig = []
@@ -55,7 +62,6 @@ def aht_randomize(M):
         CS = ConnectedSurfaces(M, -10)
         LW = CS.essential_faces_of_normal_polytope()
         LW_faces = LW.maximal
-
         for i in range(len(LW_faces)):
             vs = LW_faces[i].vertex_surfaces
             vs_regina_list = [S.surface for S in vs]
@@ -77,7 +83,81 @@ def aht_randomize(M):
         while M.triangulation_isosig() in tri_isosig:
             M.randomize()
 
+
+def find_pattern(M):
+    """
+    For the given manifold M computes LW complex.
+    For each set of LW faces, attempts to track down a subcollection of pairings that is significant
+    i.e. potentially has the same number of orbits as the original pseudogroup.
+    Checks for subcollections of size 2-6 and evaluates polynomials for values up until 50.
+    If nothing is found simplifies the pseudogroup as much as possible by removing pairings that do not affect the orbit count.
+    Information about the manifold is pickled (specifically written to be saved in Keeling.)
+    """
+    correct_euler = False
+    euler_bound = -6
+    while not correct_euler:
+        try:
+            CS = ConnectedSurfaces(M, euler_bound)
+            correct_euler = True
+            LW = CS.essential_faces_of_normal_polytope()
+            LW_faces = LW.maximal
+        except:
+            correct_euler = False
+            euler_bound += -2
+
+    result_allfaces = []
+    interval_allfaces = []
+    original_PG = []
+    for i in range(len(LW_faces)):
+        vs = LW_faces[i].vertex_surfaces
+        if len(vs) == 1:
+            interval_allfaces.append('single_vertex_surface')
+            result_allfaces.append('single_vertex_surface')
+            original_PG.append('single_vertex_surface')
+        else:
+            vs_regina_list = [S.surface for S in vs]
+            SO = SurfacetoOrbit(vs_regina_list)
+            G = Pseudogroup(SO.pairings, SO.interval, SO.interval_divided)
+            G_copy = copy.deepcopy(G)
+            original_PG.append(G_copy)
+            simplified_interval, simplified_pairings = G.reduce_amap()
+            interval_allfaces.append(simplified_interval)
+
+            # test all subcollections of size 2-6, stop if something is found
+            n = 2
+            for n in range(2, 7):
+                result = test_all_subcol(simplified_interval, simplified_pairings, SO.num_vertex, n)
+                if result:
+                    break
+                else:
+                    continue
+            # if no significant subcollection of size at most 6 is not found, simplify by removing pairings one at a time
+            if not result:
+                result = simplify_remove_one(simplified_interval, simplified_pairings, SO.num_vertex)
+            result_allfaces.append(result)
+
+    vertex_surfaces = [[S.full_vector for S in LW_faces[i].vertex_surfaces] for i in range(len(LW_faces))]
+    save = {'manifold': M.name(),
+            'LW_complex': vertex_surfaces,
+            'orginal_psuedogroup': original_PG,
+            'intervals': interval_allfaces,
+            'patterns': result_allfaces}
+    directory = '/data/keeling/a/chaeryn2/patterns/'
+    filename = f'pattern_info_{M.name()}'
+    with open(directory + filename, 'wb') as file:
+        pickle.dump(save, file)
+    return
+
 def find_pattern_unknown(index=-1):
+    """
+    Performs a slightly shorter version of find_pattern() on the list 'manifolds_with_least_LWfaces.txt'
+    If index=-1 checks the entire list.
+    If an index is given it will check up until that manifold.
+
+    Differs from find_pattern() in that it does not compute the LW-complex directly but retrieves that data from 'very_large_combined.csv'
+    Also does not do further simplification if a significant subcollection of size 2-6 is not found. Records 'not_found' if so.
+    Information about the manifold is pickled.
+    """
     df_all = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
 
     f = open(os.getcwd() + '/manifolds_with_least_LWfaces.txt')
@@ -100,13 +180,15 @@ def find_pattern_unknown(index=-1):
                 if len(surface_names) == 1:
                     interval_allfaces.append('single_vertex_surface')
                     result_allfaces.append('single_vertex_surface')
+                    original_PG.append('single_vertex_surface')
                 else:
                     vertex_surface_vectors = [eval(vector_info[i])[name] for name in surface_names]
                     vertex_surfaces = [regina.NormalSurface(T, regina.NS_QUAD_CLOSED, vec) for vec in
                                        vertex_surface_vectors]
                     SO = SurfacetoOrbit(vertex_surfaces)
                     G = Pseudogroup(SO.pairings, SO.interval, SO.interval_divided)
-                    original_PG.append(G)
+                    G_copy = copy.deepcopy(G)
+                    original_PG.append(G_copy)
                     simplified_interval, simplified_pairings = G.reduce_amap()
                     interval_allfaces.append(simplified_interval)
 
@@ -178,109 +260,35 @@ def find_pattern_unknown(index=-1):
         with open(filename, 'wb') as file:
             pickle.dump(save, file)
 
-
-def find_pattern(M):
-    correct_euler = False
-    euler_bound = -6
-    while not correct_euler:
-        try:
-            CS = ConnectedSurfaces(M, euler_bound)
-            correct_euler = True
-            LW = CS.essential_faces_of_normal_polytope()
-            LW_faces = LW.maximal
-        except:
-            correct_euler = False
-            euler_bound += -2
-
-    result_allfaces = []
-    interval_allfaces = []
-    for i in range(len(LW_faces)):
-        vs = LW_faces[i].vertex_surfaces
-        vs_regina_list = [S.surface for S in vs]
-        SO = SurfacetoOrbit(vs_regina_list)
-        G = Pseudogroup(SO.pairings, SO.interval, SO.interval_divided)
-        simplified_interval, simplified_pairings = G.reduce_amap()
-        interval_allfaces.append(simplified_interval)
-
-        # test all subcollections of size 2-6, stop if something is found
-        n = 2
-        for n in range(2, 7):
-            result = test_all_subcol(simplified_interval, simplified_pairings, SO.num_vertex, n)
-            if result:
-                break
-            else:
-                continue
-        # if no significant subcollection of size at most 6 is not found, simplify by removing pairings one at a time
-        if not result:
-            result = simplify_remove_one(simplified_interval, simplified_pairings, SO.num_vertex)
-        result_allfaces.append(result)
-
-    vertex_surfaces = [[S.full_vector for S in LW_faces[i].vertex_surfaces] for i in range(len(LW_faces))]
-    save = {'manifold': M.name(),
-            'LW_complex': vertex_surfaces,
-            'intervals': interval_allfaces,
-            'patterns': result_allfaces}
-    directory = '/data/keeling/a/chaeryn2/patterns/'
-    filename = f'pattern_info_{M.name()}'
-    with open(directory + filename, 'wb') as file:
-        pickle.dump(save, file)
-    return
-
-def print_manifold_info(M):
-    # M: snappy manifold
-    print('num tet:', M.num_tetrahedra())
-    Mcomplex = t3m.Mcomplex(M)
-    print()
-    CS = ConnectedSurfaces(M, -6)
-    LW = CS.essential_faces_of_normal_polytope()
-    LW_faces = LW.maximal
-    for i in range(len(LW_faces)):
-        vs = LW_faces[i].vertex_surfaces
-        vs_regina_list = [S.surface for S in vs]
-        for S in vs_regina_list:
-            print(S.detail())
-
-def example():
-    M = snappy.Manifold('K13n586')
-    CS = ConnectedSurfaces(M, -6)
-    LW = CS.essential_faces_of_normal_polytope()
-    LW_faces = LW.maximal
-    vs = LW_faces[0].vertex_surfaces
-    vs_regina_list = [S.surface for S in vs]
-    SO = SurfacetoOrbit(vs_regina_list)
-    return SO.pairings[0]
-
-def find_smallest_mfld_by_genfcn():
-    # this function has already been run and the necessary txt file has been made, just left in case of future use
-    df = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
-    gen_fcn = df['gen_func'].unique().tolist()
-    least_time = []
-    for gf in gen_fcn:
-        df_gf = df[df['gen_func'] == gf]
-        index = df_gf['gen_func_time'].idxmin()
-        least_time.append(df_gf.loc[index, 'name'])
-
-    with open('smallest_manifold_by_genfcn.txt', 'w') as f:
-        for name in least_time:
-            f.write(str(name) + '\n')
-
-def find_rep_manifold_ebg():
-    df = pd.read_csv(os.getcwd() + '/extended_by_genus.csv')
-    df_all = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
-    gen_fcn = df['gen_func'].unique().tolist()
-    least_faces = []
-    for gf in gen_fcn:
-        df_gf = df_all[df_all['gen_func'] == gf]
-        min_faces = df_gf['LW_num_max_faces'].min()
-        df_gf_mf = df_gf[df_gf['LW_num_max_faces'] == min_faces]
-        index = df_gf_mf['tets'].idxmin()
-        least_faces.append(df_gf_mf.loc[index, 'name'])
-
-    with open('manifolds_with_least_LWfaces.txt', 'w') as f:
-        for name in least_faces:
-            f.write(str(name) + '\n')
+# def print_manifold_info(M):
+#     # M: snappy manifold
+#     print('num tet:', M.num_tetrahedra())
+#     Mcomplex = t3m.Mcomplex(M)
+#     print()
+#     CS = ConnectedSurfaces(M, -6)
+#     LW = CS.essential_faces_of_normal_polytope()
+#     LW_faces = LW.maximal
+#     for i in range(len(LW_faces)):
+#         vs = LW_faces[i].vertex_surfaces
+#         vs_regina_list = [S.surface for S in vs]
+#         for S in vs_regina_list:
+#             print(S.detail())
+#
+# def example():
+#     M = snappy.Manifold('K13n586')
+#     CS = ConnectedSurfaces(M, -6)
+#     LW = CS.essential_faces_of_normal_polytope()
+#     LW_faces = LW.maximal
+#     vs = LW_faces[0].vertex_surfaces
+#     vs_regina_list = [S.surface for S in vs]
+#     SO = SurfacetoOrbit(vs_regina_list)
+#     return SO.pairings[0]
 
 def main_aht_randomize():
+    """
+    Main function for aht_randomize() run on Keeling.
+    Files are saved to ahg_results folder.
+    """
     task = int(os.environ['SLURM_ARRAY_TASK_ID'])
 
     df = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
@@ -326,6 +334,10 @@ def main_aht_randomize():
             continue
 
 def main_find_pattern():
+    """
+    Main function for find_pattern() run on Keeling.
+    Files are saved to patterns folder.
+    """
     task = int(os.environ['SLURM_ARRAY_TASK_ID'])
 
     df = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
@@ -346,7 +358,36 @@ def main_find_pattern():
         M = snappy.Manifold(name)
         find_pattern(M)
 
+def main_find_pattern_by_genfcn():
+    """
+    Main function for find_pattern() run on Keeling.
+    Only for manifolds in 'smallest_manifold_by_genfcn.txt'
+    """
+    task = int(os.environ['SLURM_ARRAY_TASK_ID'])
+
+    with open('smallest_manifold_by_genfcn.txt', 'r') as f:
+        mflds = f.read().split('\n')
+
+    mfld_list = []
+    for i in range(task, len(mflds), 20):
+        found = False
+        name = mflds[i]
+        for filename in os.listdir('/data/keeling/a/chaeryn2/patterns/'):
+            if name in filename:
+                found = True
+                break
+        if not found:
+            mfld_list.append(name)
+
+    for name in mfld_list:
+        M = snappy.Manifold(name)
+        find_pattern(M)
+
 def main_find_pattern_unknown():
+    """
+    Main function for find_pattern_unknown() run on Keeling.
+    Did one manifold per job.
+    """
     i = int(os.environ['SLURM_ARRAY_TASK_ID'])
 
     df_all = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
@@ -380,6 +421,7 @@ def main_find_pattern_unknown():
         if len(surface_names) == 1:
             interval_allfaces.append('single_vertex_surface')
             result_allfaces.append('single_vertex_surface')
+            original_PG.append('single_vertex_surface')
         else:
             vertex_surface_vectors = [eval(vector_info)[name] for name in surface_names]
             vertex_surfaces = [regina.NormalSurface(T, regina.NS_QUAD_CLOSED, vec) for vec in vertex_surface_vectors]
@@ -414,6 +456,11 @@ def main_find_pattern_unknown():
         pickle.dump(save, file)
 
 def main_find_pattern_unknown_separate():
+    """
+    Main function for find_pattern_unknown() run on Keeling.
+    Did one manifold per job but saved files for each LW face and subcollection size separately to save time.
+    There are 77 manifolds in manifolds_with_least_LWfaces.txt
+    """
     i = int(os.environ['SLURM_ARRAY_TASK_ID'])
 
     df_all = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
@@ -443,7 +490,6 @@ def main_find_pattern_unknown_separate():
             SO = SurfacetoOrbit(vertex_surfaces)
             G = Pseudogroup(SO.pairings, SO.interval, SO.interval_divided)
             G_copy = copy.deepcopy(G)
-
             simplified_interval, simplified_pairings = G.reduce_amap()
 
             # test all subcollections of size 2-6, stop if something is found
@@ -471,28 +517,10 @@ def main_find_pattern_unknown_separate():
                     with open(directory + filename, 'wb') as file:
                         pickle.dump(save, file)
 
-def main_find_pattern_by_genfcn():
-    task = int(os.environ['SLURM_ARRAY_TASK_ID'])
-
-    with open('smallest_manifold_by_genfcn.txt', 'r') as f:
-        mflds = f.read().split('\n')
-
-    mfld_list = []
-    for i in range(task, len(mflds), 20):
-        found = False
-        name = mflds[i]
-        for filename in os.listdir('/data/keeling/a/chaeryn2/patterns/'):
-            if name in filename:
-                found = True
-                break
-        if not found:
-            mfld_list.append(name)
-
-    for name in mfld_list:
-        M = snappy.Manifold(name)
-        find_pattern(M)
-
 def recreate_example(M):
+    """
+    Version of find_pattern_unknown() run on Docker for checks
+    """
     # M: string of the manifold's name
     print('manifold', M)
 
@@ -519,7 +547,8 @@ def recreate_example(M):
             SO = SurfacetoOrbit(vertex_surfaces)
             G = Pseudogroup(SO.pairings, SO.interval, SO.interval_divided)
             print(G)
-            original_PG.append(G)
+            G_copy = copy.deepcopy(G)
+            original_PG.append(G_copy)
             simplified_interval, simplified_pairings = G.reduce_amap()
             interval_allfaces.append(simplified_interval)
             print('simplified to', simplified_interval)
@@ -550,7 +579,12 @@ def recreate_example(M):
     with open(filename, 'wb') as file:
         pickle.dump(save, file)
 
+# this function has already been run on Keeling and necessary results have been produced
 def check_extend_gen_fcn():
+    """
+    Used to check orbits was functioning.
+    Ran extend_gen_fcn() on all manifolds in very_large_combined.csv and compared with existing data.
+    """
     task = int(os.environ['SLURM_ARRAY_TASK_ID'])
 
     df = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
@@ -569,7 +603,36 @@ def check_extend_gen_fcn():
         with open(directory + filename, 'wb') as file:
             pickle.dump(save, file)
 
+# this function has already been run and the necessary txt file has been made, just left in case of future use
+def find_smallest_mfld_by_genfcn():
+    df = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
+    gen_fcn = df['gen_func'].unique().tolist()
+    least_time = []
+    for gf in gen_fcn:
+        df_gf = df[df['gen_func'] == gf]
+        index = df_gf['gen_func_time'].idxmin()
+        least_time.append(df_gf.loc[index, 'name'])
+
+    with open('smallest_manifold_by_genfcn.txt', 'w') as f:
+        for name in least_time:
+            f.write(str(name) + '\n')
+
+# this function has already been run and the necessary txt file has been made, just left in case of future use
+def find_rep_manifold_ebg():
+    df = pd.read_csv(os.getcwd() + '/extended_by_genus.csv')
+    df_all = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
+    gen_fcn = df['gen_func'].unique().tolist()
+    least_faces = []
+    for gf in gen_fcn:
+        df_gf = df_all[df_all['gen_func'] == gf]
+        min_faces = df_gf['LW_num_max_faces'].min()
+        df_gf_mf = df_gf[df_gf['LW_num_max_faces'] == min_faces]
+        index = df_gf_mf['tets'].idxmin()
+        least_faces.append(df_gf_mf.loc[index, 'name'])
+
+    with open('manifolds_with_least_LWfaces.txt', 'w') as f:
+        for name in least_faces:
+            f.write(str(name) + '\n')
+
 if __name__ == '__main__':
-    check_extend_gen_fcn()
-    # main_find_pattern_unknown_separate()
-    # recreate_example('o9_34491')
+    main_find_pattern_unknown_separate()
