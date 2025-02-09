@@ -74,7 +74,7 @@ def aht_randomize(M):
                         'triangulation': M.triangulation_isosig(),
                         'LW_complex': vertex_surfaces,
                         'candidates': result}
-                directory = '/data/keeling/a/chaeryn2/ahg_results/'
+                directory = '/data/keeling/a/chaeryn2/aht_results/'
                 filename = f'PG_info_{M.name()}'
                 with open(directory+filename, 'wb') as file:
                     pickle.dump(save, file)
@@ -287,7 +287,7 @@ def find_pattern_unknown(index=-1):
 def main_aht_randomize():
     """
     Main function for aht_randomize() run on Keeling.
-    Files are saved to ahg_results folder.
+    Files are saved to aht_results folder.
     """
     task = int(os.environ['SLURM_ARRAY_TASK_ID'])
 
@@ -304,7 +304,7 @@ def main_aht_randomize():
     for i in range(task, len(mflds), 20):
         found = False
         name = mflds[i]
-        for filename in os.listdir('/data/keeling/a/chaeryn2/ahg_results/'):
+        for filename in os.listdir('/data/keeling/a/chaeryn2/aht_results/'):
             if name in filename:
                 found = True
                 break
