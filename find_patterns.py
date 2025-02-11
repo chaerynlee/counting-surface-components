@@ -204,15 +204,15 @@ def extend_gen_fcn(manifold, genus, all=False):
     if not all:
         count = count_conn_surfaces(LWC_info, T, genera_info, genus, vector_info)
         tok = time.perf_counter()
-        time = tok - tik
-        return count, time
+        time_taken = tok - tik
+        return count, time_taken
     if all:
         counts = []
         for g in range(2, genus + 1):
             counts.append(count_conn_surfaces(LWC_info, T, genera_info, g, vector_info))
         tok = time.perf_counter()
-        time = tok - tik
-        return counts, time
+        time_taken = tok - tik
+        return counts, time_taken
 
 def count_conn_surfaces(LWC_info, T, genera_info, genus, vector_info):
     """
