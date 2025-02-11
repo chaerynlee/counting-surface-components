@@ -1,6 +1,6 @@
 #! /data/keeling/a/nmd/miniconda3/envs/sage_full/bin/sage-python -u
 
-#SBATCH --array=0-76
+#SBATCH --array=0-19
 #SBATCH --partition m
 #SBATCH --tasks=1
 #SBATCH --mem-per-cpu=4G
@@ -579,6 +579,30 @@ def recreate_example(M):
     with open(filename, 'wb') as file:
         pickle.dump(save, file)
 
+def main_find_gen_fcn_200():
+    """
+    For manifolds in 'surface_counts_deep.csv' calculates the generating function to 200 and returns the result and time taken.
+    There are 94 manifolds in this list.
+    Used to see if this method is indeed efficient.
+    """
+    task = int(os.environ['SLURM_ARRAY_TASK_ID'])
+
+    f = open(os.getcwd() + '/manifolds_with_surface_counts.txt')
+    mflds = f.read().split('\n')
+    task_list = []
+    for i in range(task, len(mflds), 20):
+         task_list.append(mflds[i])
+
+    for M in task_list:
+        counts, time = extend_gen_fcn(M, 200, all=True):
+        save = {'manifold': M,
+                'count_by_genus<201': counts,
+                'time': time}
+        directory = '/data/keeling/a/chaeryn2/patterns/'
+        filename = f'extend_gen_fcn<201_{M}'
+        with open(directory + filename, 'wb') as file:
+            pickle.dump(save, file)
+
 # this function has already been run on Keeling and necessary results have been produced
 def check_extend_gen_fcn():
     """
@@ -635,4 +659,5 @@ def find_rep_manifold_ebg():
             f.write(str(name) + '\n')
 
 if __name__ == '__main__':
-    main_find_pattern_unknown_separate()
+    main_find_gen_fcn_200()
+    # main_find_pattern_unknown_separate()

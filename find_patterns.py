@@ -3,7 +3,7 @@ from orbits_manifold import *
 from Orbits import orbits
 from nscomplex_updated import faces, surfaces
 import count_components
-import os, itertools, random, math
+import os, itertools, random, math, time
 import pandas as pd
 import numpy as np
 import snappy.snap.t3mlite as t3m
@@ -190,6 +190,7 @@ def extend_gen_fcn(manifold, genus, all=False):
     For the given manifold, calculates the number of connected surfaces of the given genus.
     manifold must be a string of its name and must be contained in the data set 'very_large_combined.csv'
     If all is set to True returns a list of all numbers of connected surfaces up to the given genus.
+    Also returns the time taken to perform the computation.
     """
     df = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
     i = df.index[df['name'] == manifold].values[0]
@@ -199,13 +200,19 @@ def extend_gen_fcn(manifold, genus, all=False):
     vector_info = df.iloc[i, df.columns.get_loc('vertex_surfaces')]
     genera_info = df.iloc[i, df.columns.get_loc('vertex_genera')]
 
+    tik = time.perf_counter()
     if not all:
-        return count_conn_surfaces(LWC_info, T, genera_info, genus, vector_info)
+        count = count_conn_surfaces(LWC_info, T, genera_info, genus, vector_info)
+        tok = time.perf_counter()
+        time = tok - tik
+        return count, time
     if all:
         counts = []
         for g in range(2, genus + 1):
             counts.append(count_conn_surfaces(LWC_info, T, genera_info, g, vector_info))
-        return counts
+        tok = time.perf_counter()
+        time = tok - tik
+        return counts, time
 
 def count_conn_surfaces(LWC_info, T, genera_info, genus, vector_info):
     """
