@@ -579,9 +579,9 @@ def recreate_example(M):
     with open(filename, 'wb') as file:
         pickle.dump(save, file)
 
-def main_find_gen_fcn_200():
+def main_find_gen_fcn_50():
     """
-    For manifolds in 'surface_counts_deep.csv' calculates the generating function to 200 and returns the result and time taken.
+    For manifolds in 'surface_counts_deep.csv' calculates the generating function to 50 and returns the result and time taken.
     There are 94 manifolds in this list.
     Used to see if this method is indeed efficient.
     """
@@ -594,12 +594,12 @@ def main_find_gen_fcn_200():
          task_list.append(mflds[i])
 
     for M in task_list:
-        counts, time = extend_gen_fcn(M, 200, all=True):
+        counts, time = extend_gen_fcn(M, 50, all=True)
         save = {'manifold': M,
-                'count_by_genus<201': counts,
+                'count_by_genus<51': counts,
                 'time': time}
         directory = '/data/keeling/a/chaeryn2/patterns/'
-        filename = f'extend_gen_fcn<201_{M}'
+        filename = f'extend_gen_fcn<51_{M}'
         with open(directory + filename, 'wb') as file:
             pickle.dump(save, file)
 
@@ -659,5 +659,5 @@ def find_rep_manifold_ebg():
             f.write(str(name) + '\n')
 
 if __name__ == '__main__':
-    main_find_gen_fcn_200()
+    main_find_gen_fcn_50()
     # main_find_pattern_unknown_separate()
