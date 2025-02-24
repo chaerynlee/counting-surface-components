@@ -1,6 +1,6 @@
 #! /data/keeling/a/nmd/miniconda3/envs/sage_full/bin/sage-python -u
 
-#SBATCH --array=0-19
+#SBATCH --array=0-75
 #SBATCH --partition m
 #SBATCH --tasks=1
 #SBATCH --mem-per-cpu=4G
@@ -458,64 +458,70 @@ def main_find_pattern_unknown():
 def main_find_pattern_unknown_separate():
     """
     Main function for find_pattern_unknown() run on Keeling.
-    Did one manifold per job but saved files for each LW face and subcollection size separately to save time.
-    There are 77 manifolds in manifolds_with_least_LWfaces.txt
+    Did one class of manifolds per job but saved files for each LW face and subcollection size separately to save time.
+    There are 76 types of manifolds in 'manifolds_by_genfcn'
     """
-    i = int(os.environ['SLURM_ARRAY_TASK_ID'])
+    I = int(os.environ['SLURM_ARRAY_TASK_ID'])
 
     df_all = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
 
-    f = open(os.getcwd() + '/manifolds_with_least_LWfaces.txt')
-    mflds = f.read().split('\n')
+    with open(os.getcwd() + '/manifolds_by_genfcn', 'rb') as file:
+        f = pickle.load(file)
+    mflds = f[I]
     df = df_all[df_all['name'].isin(mflds)]
-    M = df.iloc[i, df.columns.get_loc('name')]
 
-    # check if manifold already has results
-    for filename in os.listdir('/data/keeling/a/chaeryn2/patterns/'):
-        if M in filename:
-            return
+    for i in range(len(df.index)):
+        M = df.iloc[i, df.columns.get_loc('name')]
 
-    TS = snappy.Manifold(df.iloc[i, df.columns.get_loc('tri_used')])
-    T = regina.Triangulation3(TS)
-    vector_info = df.iloc[i, df.columns.get_loc('vertex_surfaces')]
-    LWC_info = df.iloc[i, df.columns.get_loc('max_faces')]
+        # check if manifold already has results
+        done = False
+        for filename in os.listdir('/data/keeling/a/chaeryn2/patterns/'):
+            if 'unknown_pattern_info_{M}' in filename:
+                done = True
+                break
 
-    for face_num, face in enumerate(eval(LWC_info)):
-        surface_names = face['verts']
-        if len(surface_names) == 1:
-            continue
-        else:
-            vertex_surface_vectors = [eval(vector_info)[name] for name in surface_names]
-            vertex_surfaces = [regina.NormalSurface(T, regina.NS_QUAD_CLOSED, vec) for vec in vertex_surface_vectors]
-            SO = SurfacetoOrbit(vertex_surfaces)
-            G = Pseudogroup(SO.pairings, SO.interval, SO.interval_divided)
-            G_copy = copy.deepcopy(G)
-            simplified_interval, simplified_pairings = G.reduce_amap()
+        if not done:
+            TS = snappy.Manifold(df.iloc[i, df.columns.get_loc('tri_used')])
+            T = regina.Triangulation3(TS)
+            vector_info = df.iloc[i, df.columns.get_loc('vertex_surfaces')]
+            LWC_info = df.iloc[i, df.columns.get_loc('max_faces')]
 
-            # test all subcollections of size 2-6, stop if something is found
-            for n in range(2, 7):
-                result = test_all_subcol(simplified_interval, simplified_pairings, SO.num_vertex, n)
-                if result:
-                    save = {'manifold': M,
-                            'LW_complex': LWC_info,
-                            'orginal_psuedogroup': G_copy,
-                            'intervals': simplified_interval,
-                            'patterns': result}
-                    directory = '/data/keeling/a/chaeryn2/patterns/'
-                    filename = f'unknown_pattern_info_{M}_face{face_num}_subcoll{n}'
-                    with open(directory + filename, 'wb') as file:
-                        pickle.dump(save, file)
-                    break
+            for face_num, face in enumerate(eval(LWC_info)):
+                surface_names = face['verts']
+                if len(surface_names) == 1:
+                    continue
                 else:
-                    save = {'manifold': M,
-                            'LW_complex': LWC_info,
-                            'orginal_psuedogroup': G_copy,
-                            'intervals': simplified_interval,
-                            'patterns': 'not_found'}
-                    directory = '/data/keeling/a/chaeryn2/patterns/'
-                    filename = f'unknown_pattern_info_{M}_face{face_num}_subcoll{n}'
-                    with open(directory + filename, 'wb') as file:
-                        pickle.dump(save, file)
+                    vertex_surface_vectors = [eval(vector_info)[name] for name in surface_names]
+                    vertex_surfaces = [regina.NormalSurface(T, regina.NS_QUAD_CLOSED, vec) for vec in vertex_surface_vectors]
+                    SO = SurfacetoOrbit(vertex_surfaces)
+                    G = Pseudogroup(SO.pairings, SO.interval, SO.interval_divided)
+                    G_copy = copy.deepcopy(G)
+                    simplified_interval, simplified_pairings = G.reduce_amap()
+
+                    # test all subcollections of size 2-6, stop if something is found
+                    for n in range(2, 7):
+                        result = test_all_subcol(simplified_interval, simplified_pairings, SO.num_vertex, n)
+                        if result:
+                            save = {'manifold': M,
+                                    'LW_complex': LWC_info,
+                                    'orginal_psuedogroup': G_copy,
+                                    'intervals': simplified_interval,
+                                    'patterns': result}
+                            directory = '/data/keeling/a/chaeryn2/patterns/'
+                            filename = f'unknown_pattern_info_{M}_face{face_num}_subcoll{n}'
+                            with open(directory + filename, 'wb') as file:
+                                pickle.dump(save, file)
+                            break
+                        else:
+                            save = {'manifold': M,
+                                    'LW_complex': LWC_info,
+                                    'orginal_psuedogroup': G_copy,
+                                    'intervals': simplified_interval,
+                                    'patterns': 'not_found'}
+                            directory = '/data/keeling/a/chaeryn2/patterns/'
+                            filename = f'unknown_pattern_info_{M}_face{face_num}_subcoll{n}'
+                            with open(directory + filename, 'wb') as file:
+                                pickle.dump(save, file)
 
 def recreate_example(M):
     """
@@ -651,13 +657,35 @@ def find_rep_manifold_ebg():
         df_gf = df_all[df_all['gen_func'] == gf]
         min_faces = df_gf['LW_num_max_faces'].min()
         df_gf_mf = df_gf[df_gf['LW_num_max_faces'] == min_faces]
-        index = df_gf_mf['tets'].idxmin()
-        least_faces.append(df_gf_mf.loc[index, 'name'])
+        # save all manifolds that have the least number of faces in LW-complex
+        indices = df_gf_mf.index
+        least_faces.append(df_gf_mf.loc[indices, 'name'].tolist())
 
-    with open('manifolds_with_least_LWfaces.txt', 'w') as f:
-        for name in least_faces:
-            f.write(str(name) + '\n')
+    with open('manifolds_with_least_LWfaces', 'wb') as f:
+        pickle.dump(least_faces, f)
+
+        # originally just used first manifold with the least number of tetrahedra and the code below was used
+        # index = df_gf_mf['tets'].idxmin()
+        # least_faces.append(df_gf_mf.loc[index, 'name'])
+
+    # with open('manifolds_with_least_LWfaces.txt', 'w') as f:
+    #     for name in least_faces:
+    #         f.write(str(name) + '\n')
+
+# this function has already been run and the necessary pickle file has been made, just left in case of future use
+def group_manifolds_by_ebg():
+    df = pd.read_csv(os.getcwd() + '/extended_by_genus.csv')
+    df_all = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
+    gen_fcn = df['gen_func'].unique().tolist()
+    manifolds_by_genfcn = []
+    for gf in gen_fcn:
+        df_gf = df_all[df_all['gen_func'] == gf]
+        df_gf.sort_values(by=['LW_num_max_faces', 'tets'], inplace=True)
+        manifolds_by_genfcn.append(df_gf['name'].tolist())
+
+    with open('manifolds_by_genfcn', 'wb') as f:
+        pickle.dump(manifolds_by_genfcn, f)
+
 
 if __name__ == '__main__':
-    main_find_gen_fcn_50()
-    # main_find_pattern_unknown_separate()
+    main_find_pattern_unknown_separate()
