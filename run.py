@@ -1,6 +1,6 @@
 #! /data/keeling/a/nmd/miniconda3/envs/sage_full/bin/sage-python -u
 
-#SBATCH --array=0-75
+#SBATCH --array=0-36
 #SBATCH --partition m
 #SBATCH --tasks=1
 #SBATCH --mem-per-cpu=4G
@@ -523,6 +523,73 @@ def main_find_pattern_unknown_separate():
                             with open(directory + filename, 'wb') as file:
                                 pickle.dump(save, file)
 
+def main_find_pattern_unknown_irregular():
+    """
+    Main function for find_pattern_unknown() only for manifolds that are assumed to be irregular.
+    There are 37 types of manifolds in 'manifolds_by_genfcn'
+    """
+    I = int(os.environ['SLURM_ARRAY_TASK_ID'])
+
+    df_all = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
+
+    with open(os.getcwd() + '/irr_manifolds_by_genfcn', 'rb') as file:
+        f = pickle.load(file)
+    mflds = f[I]
+    df = df_all[df_all['name'].isin(mflds)]
+
+    for i in range(len(df.index)):
+        M = df.iloc[i, df.columns.get_loc('name')]
+
+        # check if manifold already has results
+        done = False
+        for filename in os.listdir('/data/keeling/a/chaeryn2/patterns/'):
+            if 'unknown_pattern_info_{M}' in filename:
+                done = True
+                break
+
+        if not done:
+            TS = snappy.Manifold(df.iloc[i, df.columns.get_loc('tri_used')])
+            T = regina.Triangulation3(TS)
+            vector_info = df.iloc[i, df.columns.get_loc('vertex_surfaces')]
+            LWC_info = df.iloc[i, df.columns.get_loc('max_faces')]
+
+            for face_num, face in enumerate(eval(LWC_info)):
+                surface_names = face['verts']
+                if len(surface_names) == 1:
+                    continue
+                else:
+                    vertex_surface_vectors = [eval(vector_info)[name] for name in surface_names]
+                    vertex_surfaces = [regina.NormalSurface(T, regina.NS_QUAD_CLOSED, vec) for vec in vertex_surface_vectors]
+                    SO = SurfacetoOrbit(vertex_surfaces)
+                    G = Pseudogroup(SO.pairings, SO.interval, SO.interval_divided)
+                    G_copy = copy.deepcopy(G)
+                    simplified_interval, simplified_pairings = G.reduce_amap()
+
+                    # test all subcollections of size 2-6, stop if something is found
+                    for n in range(2, 7):
+                        result = test_all_subcol(simplified_interval, simplified_pairings, SO.num_vertex, n)
+                        if result:
+                            save = {'manifold': M,
+                                    'LW_complex': LWC_info,
+                                    'orginal_psuedogroup': G_copy,
+                                    'intervals': simplified_interval,
+                                    'patterns': result}
+                            directory = '/data/keeling/a/chaeryn2/patterns/'
+                            filename = f'unknown_pattern_info_{M}_face{face_num}_subcoll{n}'
+                            with open(directory + filename, 'wb') as file:
+                                pickle.dump(save, file)
+                            break
+                        else:
+                            save = {'manifold': M,
+                                    'LW_complex': LWC_info,
+                                    'orginal_psuedogroup': G_copy,
+                                    'intervals': simplified_interval,
+                                    'patterns': 'not_found'}
+                            directory = '/data/keeling/a/chaeryn2/patterns/'
+                            filename = f'unknown_pattern_info_{M}_face{face_num}_subcoll{n}'
+                            with open(directory + filename, 'wb') as file:
+                                pickle.dump(save, file)
+
 def recreate_example(M):
     """
     Version of find_pattern_unknown() run on Docker for checks
@@ -686,6 +753,21 @@ def group_manifolds_by_ebg():
     with open('manifolds_by_genfcn', 'wb') as f:
         pickle.dump(manifolds_by_genfcn, f)
 
+# this function has already been run and the necessary pickle file has been made, just left in case of future use
+def irr_manifolds_by_ebg():
+    df = pd.read_csv(os.getcwd() + '/extended_by_genus.csv')
+    df_all = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
+    df_irregular = df[df['likely_regular'] == 0]
+    gen_fcn = df_irregular['gen_func'].unique().tolist()
+    irr_manifolds_by_genfcn = []
+    for gf in gen_fcn:
+        df_gf = df_all[df_all['gen_func'] == gf]
+        df_gf.sort_values(by=['LW_num_max_faces', 'tets'], inplace=True)
+        irr_manifolds_by_genfcn.append(df_gf['name'].tolist())
+
+    with open('irr_manifolds_by_genfcn', 'wb') as f:
+        pickle.dump(irr_manifolds_by_genfcn, f)
+
 
 if __name__ == '__main__':
-    main_find_pattern_unknown_separate()
+    main_find_pattern_unknown_irregular()
