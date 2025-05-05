@@ -1,6 +1,6 @@
 #! /data/keeling/a/nmd/miniconda3/envs/sage_full/bin/sage-python -u
 
-#SBATCH --array=0-36
+#SBATCH --array=0-4
 #SBATCH --partition m
 #SBATCH --tasks=1
 #SBATCH --mem-per-cpu=4G
@@ -590,6 +590,49 @@ def main_find_pattern_unknown_irregular():
                             with open(directory + filename, 'wb') as file:
                                 pickle.dump(save, file)
 
+def main_o9_41182():
+    """
+    Main function for find_pattern_unknown() specifically for 'o9_41182'
+    Has 5 faces in its maximal LW complex
+    """
+    M = 'o9_41182'
+    df = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
+    i = df.index[df['name'] == M].values[0]
+
+    TS = snappy.Manifold(df.iloc[i, df.columns.get_loc('tri_used')])
+    T = regina.Triangulation3(TS)
+    vector_info = df.iloc[i, df.columns.get_loc('vertex_surfaces')]
+    LWC_info = df.iloc[i, df.columns.get_loc('max_faces')]
+
+    face_num = int(os.environ['SLURM_ARRAY_TASK_ID'])
+    face = eval(LWC_info)[face_num]
+    surface_names = face['verts']
+    vertex_surface_vectors = [eval(vector_info)[name] for name in surface_names]
+    vertex_surfaces = [regina.NormalSurface(T, regina.NS_QUAD_CLOSED, vec) for vec in vertex_surface_vectors]
+    SO = SurfacetoOrbit(vertex_surfaces)
+    G = Pseudogroup(SO.pairings, SO.interval, SO.interval_divided)
+    G_copy = copy.deepcopy(G)
+    simplified_interval, simplified_pairings = G.reduce_amap()
+
+    for n in range(7, len(simplified_pairings)):
+        result = test_all_subcol(simplified_interval, simplified_pairings, SO.num_vertex, n)
+        if result:
+            save = {'face': face,
+                    'vs_names': surface_names,
+                    'vs_vectors': vertex_surface_vectors,
+                    'orginal_pseudogroup': G_copy,
+                    'simplified_interval': simplified_interval,
+                    'simplified_pairings': simplified_pairings,
+                    'pattern': result}
+            directory = '/data/keeling/a/chaeryn2/patterns/'
+            filename = f'o9_41182_face{face_num}_subcoll{n}'
+            with open(directory + filename, 'wb') as file:
+                pickle.dump(save, file)
+            break
+        else:
+            continue
+
+
 def recreate_example(M):
     """
     Version of find_pattern_unknown() run on Docker for checks
@@ -608,7 +651,10 @@ def recreate_example(M):
     interval_allfaces = []
     result_allfaces = []
     original_PG = []
-    for face in eval(LWC_info):
+
+    reverse = reversed(eval(LWC_info))
+
+    for face in reverse:
         print(face)
         surface_names = face['verts']
         if len(surface_names) == 1:
@@ -628,7 +674,7 @@ def recreate_example(M):
             print(simplified_pairings)
 
             # test all subcollections of size 2-6, stop if something is found
-            for n in range(2, 7):
+            for n in range(7, 8):
                 result = test_all_subcol(simplified_interval, simplified_pairings, SO.num_vertex, n)
                 if result:
                     break
@@ -770,4 +816,28 @@ def irr_manifolds_by_ebg():
 
 
 if __name__ == '__main__':
-    main_find_pattern_unknown_irregular()
+    # main_find_pattern_unknown_irregular()
+    # recreate_example('o9_41182')
+    main_o9_41182
+
+    # M = 'o9_41182'
+    # df = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
+    # i = df.index[df['name'] == M].values[0]
+    # TS = snappy.Manifold(df.iloc[i, df.columns.get_loc('tri_used')])
+    # T = regina.Triangulation3(TS)
+    # vector_info = df.iloc[i, df.columns.get_loc('vertex_surfaces')]
+    # LWC_info = df.iloc[i, df.columns.get_loc('max_faces')]
+    #
+    # print(LWC_info)
+    # for face in eval(LWC_info):
+    #     surface_names = face['verts']
+    #     print(surface_names)
+    #     vertex_surface_vectors = [eval(vector_info)[name] for name in surface_names]
+    #     vertex_surfaces = [regina.NormalSurface(T, regina.NS_QUAD_CLOSED, vec) for vec in vertex_surface_vectors]
+    #     for n in range(1, 7):
+    #         for m in range(1, 7):
+    #             S = vertex_surfaces[0] * regina.LargeInteger(n) + vertex_surfaces[1] * regina.LargeInteger(m)
+    #             print(n, m, S.eulerChar(), S.isConnected())
+    #     print()
+    #         #     for S in vertex_surfaces:
+    #         # print(S.eulerChar(), S.isConnected())
