@@ -818,7 +818,7 @@ def irr_manifolds_by_ebg():
 if __name__ == '__main__':
     # main_find_pattern_unknown_irregular()
     # recreate_example('o9_41182')
-    main_o9_41182
+    main_o9_41182()
 
     # M = 'o9_41182'
     # df = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
