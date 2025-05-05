@@ -614,7 +614,7 @@ def main_o9_41182():
     G_copy = copy.deepcopy(G)
     simplified_interval, simplified_pairings = G.reduce_amap()
 
-    for n in range(7, len(simplified_pairings)):
+    for n in range(2, 7):
         result = test_all_subcol(simplified_interval, simplified_pairings, SO.num_vertex, n)
         if result:
             save = {'face': face,
