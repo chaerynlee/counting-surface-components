@@ -97,9 +97,9 @@ class AdmissibleFace(object):
     the vertex link, the associated cone is stored in quad coordinates
     rather than triangle-quad coordinates to keep the dimension down.
     """
-    def __init__(self, dim, vertex_surfaces):  # originally had zero_set as input
+    def __init__(self, dim, zero_set, vertex_surfaces):
         self.dim = dim  # dimension of the face, not the cone
-        # self.zero_set = zero_set
+        self.zero_set = zero_set
         self.F0 = F0 = vertex_surfaces[0]
         T = F0.triangulation
         self.num_tets = T.countTetrahedra()
@@ -182,6 +182,37 @@ class AdmissibleFace(object):
                 ans.append(S)
         return len(ans)
 
+
+class AdmissibleFace_nozeroset(object):
+    """
+    The same class as the above but made without the zero set.
+    Needed to implement surfaces_of_potential_genus_in_interior()
+    """
+    def __init__(self, dim, vertex_surfaces):  # originally had zero_set as input
+        self.dim = dim  # dimension of the face, not the cone
+        self.F0 = F0 = vertex_surfaces[0]
+        T = F0.triangulation
+        self.num_tets = T.countTetrahedra()
+        self.vertex_surfaces = vertex_surfaces
+        self.euler_one_vertices = []
+        for F in self.vertex_surfaces:
+            if F.euler < 0:
+                vec = vector(QQ, F.quad_vector)/F.euler
+            else:
+                vec = None  # Vertex link
+            self.euler_one_vertices.append(vec)
+
+    def euler_slice_polyhedron(self, euler):
+        verts = [euler*v for v in self.euler_one_vertices]
+        P = Polyhedron(vertices=verts, backend='normaliz', base_ring=QQ)
+        return P
+
+    def _quad_vectors_in_interior(self, euler):
+        P = self.euler_slice_polyhedron(euler)
+        interior = [p for p in P.integral_points()
+                    if P.relative_interior_contains(p)]
+        return interior
+
     def surfaces_of_potential_genus_in_interior(self, genus):
         euler = 2 - 2*genus
         T = self.F0.triangulation
@@ -191,6 +222,7 @@ class AdmissibleFace(object):
             assert regina_util.to_int(S.eulerChar()) == euler
             ans.append(S)
         return ans
+
 
 
 def admissible_faces(surfaces,

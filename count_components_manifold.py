@@ -25,8 +25,8 @@ class SurfacetoOrbit:
         self.pairings = []
         self.interval = None
         self.interval_divided = []
-        self.edge_connection = nx.Graph()
-        self.edge_connection.add_nodes_from(range(self.triangulation.countEdges()))
+        # self.edge_connection = nx.Graph()
+        # self.edge_connection.add_nodes_from(range(self.triangulation.countEdges()))
         self._find_intersections1d()
         self._find_intersections2d()
 
@@ -74,6 +74,7 @@ class SurfacetoOrbit:
         triangles = triangulation.triangles()
         oriented_edges = []
         for tri in triangles:
+            edge_info = []
             for i in range(3):
                 edge = tri.edge(i)
                 mapping = tri.edgeMapping(i)
@@ -81,7 +82,8 @@ class SurfacetoOrbit:
                     orientation = 1
                 else:
                     orientation = -1
-                oriented_edges.append((int(edge.index()), orientation))
+                edge_info.append((int(edge.index()), orientation))
+            oriented_edges.append(edge_info)
         return oriented_edges
 
     def _find_intersections2d(self):
@@ -98,11 +100,11 @@ class SurfacetoOrbit:
                 if width == orbits_manifold.Polynomial(0):
                     break
                 else:
-                    domain_edge = tri.edge((i + 1) % 3).index()
-                    range_edge = tri.edge((i + 2) % 3).index()
-                    self.edge_connection.add_edge(domain_edge, range_edge)
-                    domain_ori = ori_edges[domain_edge][1]
-                    range_ori = ori_edges[range_edge][1]
+                    domain_edge = ori_edges[t][(i + 1) % 3][0]
+                    range_edge = ori_edges[t][(i + 2) % 3][0]
+                    # self.edge_connection.add_edge(domain_edge, range_edge)
+                    domain_ori = ori_edges[t][(i + 1) % 3][1]
+                    range_ori = ori_edges[t][(i + 2) % 3][1]
                     if domain_ori == 1:
                         domain_interval = orbits_manifold.Interval(self.interval_divided[domain_edge][1] - width, self.interval_divided[domain_edge][1])
                         # domain_interval = orbits_manifold.Interval(self.interval_divided[domain_edge][1] - width + orbits_manifold.Polynomial(1), self.interval_divided[domain_edge][1])
@@ -154,10 +156,10 @@ def main():
     for i, subint in enumerate(SO.interval_divided):
         print(i, subint, subint[1] - subint[0])
 
-    print('edge connection:', SO.edge_connection.edges)
-    nx.draw(SO.edge_connection, with_labels=True)
-    plt.savefig('edgeconnection.png', dpi=300)
-    plt.close()
+    # print('edge connection:', SO.edge_connection.edges)
+    # nx.draw(SO.edge_connection, with_labels=True)
+    # plt.savefig('edgeconnection.png', dpi=300)
+    # plt.close()
 
     print('pairings:')
     for pairing in SO.pairings:
@@ -171,4 +173,4 @@ def main():
     # look in very_large_combined.csv in nscomplex for manifolds with the same a_g(M) pattern
 
 if __name__ == '__main__':
-    p = main()
+    main()

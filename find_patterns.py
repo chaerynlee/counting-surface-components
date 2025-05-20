@@ -233,7 +233,7 @@ def count_conn_surfaces(LWC_info, T, genera_info, genus, vector_info):
         vertex_surfaces_ns = [surfaces.NormalSurface(S, i) for i, S in enumerate(vertex_surfaces)]
         num_var = len(surface_names)
 
-        AF = faces.AdmissibleFace(dim, vertex_surfaces_ns)
+        AF = faces.AdmissibleFace_nozeroset(dim, vertex_surfaces_ns)
         solutions = AF.surfaces_of_potential_genus_in_interior(genus)
         # print(len(solutions))
 
@@ -297,17 +297,30 @@ def some_tests():
 
 if __name__ == '__main__':
     # test all manifolds to check if extend_gen_fcn is correct
-
-    df = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
-    for i in range(1, len(df.index)):
-        M = df.iloc[i, df.columns.get_loc('name')]
-        actual_count = eval(df.iloc[i, df.columns.get_loc('by_genus')])
-        count = extend_gen_fcn(M, 21, all=True)
-        print(M, actual_count == count)
-    # checked until K13n517
-
-    # M = 't11892'
     # df = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
-    # i = df.index[df['name'] == M].values[0]
-    # print(df.iloc[i, df.columns.get_loc('by_genus')])
-    # print(extend_gen_fcn(M, 21, all=True))
+    # for i in range(1, len(df.index)):
+    #     M = df.iloc[i, df.columns.get_loc('name')]
+    #     actual_count = eval(df.iloc[i, df.columns.get_loc('by_genus')])
+    #     count = extend_gen_fcn(M, 21, all=True)
+    #     print(M, actual_count == count)
+
+    M = 'o9_41182'
+    df = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
+    i = df.index[df['name'] == M].values[0]
+    TS = snappy.Manifold(df.iloc[i, df.columns.get_loc('tri_used')])
+    T = regina.Triangulation3(TS)
+    vector_info = df.iloc[i, df.columns.get_loc('vertex_surfaces')]
+    LWC_info = df.iloc[i, df.columns.get_loc('max_faces')]
+
+    for face in eval(LWC_info):
+        surface_names = face['verts']
+        print(surface_names)
+        vertex_surface_vectors = [eval(vector_info)[name] for name in surface_names]
+        vertex_surfaces = [regina.NormalSurface(T, regina.NS_QUAD_CLOSED, vec) for vec in vertex_surface_vectors]
+        SO = SurfacetoOrbit(vertex_surfaces)
+        for n in range(1, 7):
+            for m in range(1, 7):
+                count = evaluate_pseudogroup(SO.interval, SO.pairings, {'x0': n, 'x1': m})
+                S = vertex_surfaces[0] * regina.LargeInteger(n) + vertex_surfaces[1] * regina.LargeInteger(m)
+                print(n, m, S.eulerChar(), S.isConnected(), count_components.SurfacetoOrbit(S).countcomponents(), count)
+        print()

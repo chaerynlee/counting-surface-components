@@ -203,7 +203,7 @@ def test_group():
 
 
 if __name__ == '__main__':
-    check('t11892', 18)
+    check('o9_41182', 18)
 
     # example that didn't work
     # I = orbits.Interval(1, 6)
