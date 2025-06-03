@@ -1,6 +1,6 @@
 #! /data/keeling/a/nmd/miniconda3/envs/sage_full/bin/sage-python -u
 
-#SBATCH --array=0-36
+#SBATCH --array=0-4
 #SBATCH --partition m
 #SBATCH --tasks=1
 #SBATCH --mem-per-cpu=4G
@@ -614,7 +614,7 @@ def main_o9_41182():
     G_copy = copy.deepcopy(G)
     simplified_interval, simplified_pairings = G.reduce_amap()
 
-    for n in range(2, 20):
+    for n in range(10, 50):
         result = test_all_subcol(simplified_interval, simplified_pairings, SO.num_vertex, n)
         if result:
             save = {'face': face,
@@ -816,6 +816,6 @@ def irr_manifolds_by_ebg():
 
 
 if __name__ == '__main__':
-    main_find_pattern_unknown_irregular()
+    # main_find_pattern_unknown_irregular()
     # recreate_example('o9_41182')
-    # main_o9_41182()
+    main_o9_41182()
