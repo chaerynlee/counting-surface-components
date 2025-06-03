@@ -1,6 +1,6 @@
 #! /data/keeling/a/nmd/miniconda3/envs/sage_full/bin/sage-python -u
 
-#SBATCH --array=0-4
+#SBATCH --array=0-36
 #SBATCH --partition m
 #SBATCH --tasks=1
 #SBATCH --mem-per-cpu=4G
@@ -816,6 +816,6 @@ def irr_manifolds_by_ebg():
 
 
 if __name__ == '__main__':
-    # main_find_pattern_unknown_irregular()
+    main_find_pattern_unknown_irregular()
     # recreate_example('o9_41182')
-    main_o9_41182()
+    # main_o9_41182()
