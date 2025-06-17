@@ -663,7 +663,7 @@ def main_o9_41182_randomize():
                 result = test_all_subcol(simplified_interval, simplified_pairings, SO.num_vertex, n)
                 if result:
                     save_face = {'face': vertex_surfaces_names,
-                                 'orginal_pseudogroup': G_copy,
+                                 'original_pseudogroup': G_copy,
                                  'simplified_interval': simplified_interval,
                                  'simplified_pairings': simplified_pairings,
                                  'pattern': result}
@@ -674,7 +674,7 @@ def main_o9_41182_randomize():
 
             if not found:
                 tri_found = False
-                save_face = {'face': face,
+                save_face = {'face': vertex_surfaces_names,
                              'pattern':'not_found'}
                 save.append(save_face)
                 break
