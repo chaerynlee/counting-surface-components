@@ -652,6 +652,7 @@ def main_o9_41182_randomize():
         save = [M.triangulation_isosig()]
         for face in LW_max:
             vertex_surfaces = [S.surface for S in face.vertex_surfaces]
+            vertex_surfaces_names = [S.name for S in face.vertex_surfaces]
             SO = SurfacetoOrbit(vertex_surfaces)
             G = Pseudogroup(SO.pairings, SO.interval, SO.interval_divided)
             G_copy = copy.deepcopy(G)
@@ -661,7 +662,7 @@ def main_o9_41182_randomize():
             for n in range(2, 7):
                 result = test_all_subcol(simplified_interval, simplified_pairings, SO.num_vertex, n)
                 if result:
-                    save_face = {'face': face,
+                    save_face = {'face': vertex_surfaces_names,
                                  'orginal_pseudogroup': G_copy,
                                  'simplified_interval': simplified_interval,
                                  'simplified_pairings': simplified_pairings,
