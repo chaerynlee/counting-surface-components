@@ -1,6 +1,6 @@
 #! /data/keeling/a/nmd/miniconda3/envs/sage_full/bin/sage-python -u
 
-#SBATCH --array=0-36
+#SBATCH --array=0-0
 #SBATCH --partition m
 #SBATCH --tasks=1
 #SBATCH --mem-per-cpu=4G
@@ -12,12 +12,9 @@
 from count_components_manifold import *
 from orbits_manifold import *
 from find_patterns import *
-import os
-import multiprocessing
-import gc
+import os, multiprocessing, gc, copy
 import pandas as pd
 import snappy.snap.t3mlite as t3m
-import copy
 
 # def aht_for_manifolds():
 #     df = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
@@ -633,6 +630,60 @@ def main_o9_41182():
             continue
 
 
+def main_o9_41182_randomize():
+    """
+    Continues to randomize triangulations to find one where the pseudogroups of all lw-faces can be simplified.
+    Saves data for any triangulation it initiates to find (will stop whenever there is a face that cannot be calculated
+    and will save whatever it has found).
+    Is one single task without multiple jobs.
+    """
+    M = snappy.Manifold('o9_41182')
+    tri_found = False
+    tri_isosig = []
+    while not tri_found:
+        while M.triangulation_isosig() in tri_isosig:
+            M.randomize()
+        tri_isosig.append(M.triangulation_isosig())
+
+        CS = connected_surfaces.ConnectedSurfaces(M)
+        LW = CS.essential_faces_of_normal_polytope()
+        LW_max = LW.maximal
+
+        save = [M.triangulation_isosig()]
+        for face in LW_max:
+            vertex_surfaces = [S.surface for S in face.vertex_surfaces]
+            SO = SurfacetoOrbit(vertex_surfaces)
+            G = Pseudogroup(SO.pairings, SO.interval, SO.interval_divided)
+            G_copy = copy.deepcopy(G)
+            simplified_interval, simplified_pairings = G.reduce_amap()
+
+            found = False
+            for n in range(2, 7):
+                result = test_all_subcol(simplified_interval, simplified_pairings, SO.num_vertex, n)
+                if result:
+                    save_face = {'face': face,
+                                 'orginal_pseudogroup': G_copy,
+                                 'simplified_interval': simplified_interval,
+                                 'simplified_pairings': simplified_pairings,
+                                 'pattern': result}
+                    save.append(save_face)
+                    found = True
+                    tri_found = True
+                    break
+
+            if not found:
+                tri_found = False
+                save_face = {'face': face,
+                             'pattern':'not_found'}
+                save.append(save_face)
+                break
+
+        directory = '/data/keeling/a/chaeryn2/patterns/'
+        filename = f'o9_41182_{M.triangulation_isosig()}_result'
+        with open(directory + filename, 'wb') as file:
+            pickle.dump(save, file)
+
+
 def recreate_example(M):
     """
     Version of find_pattern_unknown() run on Docker for checks
@@ -816,6 +867,6 @@ def irr_manifolds_by_ebg():
 
 
 if __name__ == '__main__':
-    main_find_pattern_unknown_irregular()
+    main_o9_41182_randomize()
     # recreate_example('o9_41182')
     # main_o9_41182()

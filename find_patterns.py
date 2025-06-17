@@ -1,9 +1,9 @@
 from count_components_manifold import *
 from orbits_manifold import *
 from Orbits import orbits
-from nscomplex_updated import faces, surfaces
+from nscomplex_updated import *
 import count_components
-import os, itertools, random, math, time
+import os, itertools, random, math, time, copy
 import pandas as pd
 import numpy as np
 import snappy.snap.t3mlite as t3m
@@ -304,23 +304,93 @@ if __name__ == '__main__':
     #     count = extend_gen_fcn(M, 21, all=True)
     #     print(M, actual_count == count)
 
-    M = 'o9_41182'
-    df = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
-    i = df.index[df['name'] == M].values[0]
-    TS = snappy.Manifold(df.iloc[i, df.columns.get_loc('tri_used')])
-    T = regina.Triangulation3(TS)
-    vector_info = df.iloc[i, df.columns.get_loc('vertex_surfaces')]
-    LWC_info = df.iloc[i, df.columns.get_loc('max_faces')]
+    # df = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
+    # i = df.index[df['name'] == M].values[0]
+    # TS = snappy.Manifold(df.iloc[i, df.columns.get_loc('tri_used')])
+    # T = regina.Triangulation3(TS)
+    # vector_info = df.iloc[i, df.columns.get_loc('vertex_surfaces')]
+    # LWC_info = df.iloc[i, df.columns.get_loc('max_faces')]
+    #
+    # for face in eval(LWC_info):
+    #     surface_names = face['verts']
+    #     print(surface_names)
+    #     vertex_surface_vectors = [eval(vector_info)[name] for name in surface_names]
+    #     vertex_surfaces = [regina.NormalSurface(T, regina.NS_QUAD_CLOSED, vec) for vec in vertex_surface_vectors]
+    #     SO = SurfacetoOrbit(vertex_surfaces)
+    #     for n in range(1, 7):
+    #         for m in range(1, 7):
+    #             count = evaluate_pseudogroup(SO.interval, SO.pairings, {'x0': n, 'x1': m})
+    #             S = vertex_surfaces[0] * regina.LargeInteger(n) + vertex_surfaces[1] * regina.LargeInteger(m)
+    #             print(n, m, S.eulerChar(), S.isConnected(), count_components.SurfacetoOrbit(S).countcomponents(), count)
+    #     print()
 
-    for face in eval(LWC_info):
-        surface_names = face['verts']
-        print(surface_names)
-        vertex_surface_vectors = [eval(vector_info)[name] for name in surface_names]
-        vertex_surfaces = [regina.NormalSurface(T, regina.NS_QUAD_CLOSED, vec) for vec in vertex_surface_vectors]
-        SO = SurfacetoOrbit(vertex_surfaces)
-        for n in range(1, 7):
-            for m in range(1, 7):
-                count = evaluate_pseudogroup(SO.interval, SO.pairings, {'x0': n, 'x1': m})
-                S = vertex_surfaces[0] * regina.LargeInteger(n) + vertex_surfaces[1] * regina.LargeInteger(m)
-                print(n, m, S.eulerChar(), S.isConnected(), count_components.SurfacetoOrbit(S).countcomponents(), count)
-        print()
+    # M = snappy.Manifold('jLLPzPQcdeffghiiihsteaviivg_bBBa')
+    # print(M.triangulation_isosig())
+    # CS = connected_surfaces.ConnectedSurfaces(M)
+    # LW = CS.essential_faces_of_normal_polytope()
+    # LW_max = LW.maximal
+    # print(len(LW_max))
+    # for face in LW_max:
+    #     print(face)
+    #     vertex_surfaces = [S.surface for S in face.vertex_surfaces]
+    #     SO = SurfacetoOrbit(vertex_surfaces)
+    #     G = Pseudogroup(SO.pairings, SO.interval, SO.interval_divided)
+    #     simplified_interval, simplified_pairings = G.reduce_amap()
+    #
+    #     found = False
+    #     for n in range(2, 4):
+    #         result = test_all_subcol(simplified_interval, simplified_pairings, SO.num_vertex, n)
+    #         if result:
+    #             print('simplified_interval', simplified_interval)
+    #             print('pattern', result)
+    #             found = True
+    #             break
+    #
+    #     if not found:
+    #         print('not found for some face')
+    #         break
+    #     else:
+    #         continue
+
+    M = snappy.Manifold('o9_41182')
+    tri_found = False
+    tri_isosig = []
+    while not tri_found:
+        while M.triangulation_isosig() in tri_isosig:
+            M.randomize()
+        tri_isosig.append(M.triangulation_isosig())
+        print(M.triangulation_isosig())
+
+        CS = connected_surfaces.ConnectedSurfaces(M)
+        LW = CS.essential_faces_of_normal_polytope()
+        LW_max = LW.maximal
+
+        save = [M.triangulation_isosig()]
+        for face in LW_max:
+            vertex_surfaces = [S.surface for S in face.vertex_surfaces]
+            SO = SurfacetoOrbit(vertex_surfaces)
+            G = Pseudogroup(SO.pairings, SO.interval, SO.interval_divided)
+            G_copy = copy.deepcopy(G)
+            simplified_interval, simplified_pairings = G.reduce_amap()
+
+            found = False
+            for n in range(2, 4):
+                result = test_all_subcol(simplified_interval, simplified_pairings, SO.num_vertex, n)
+                if result:
+                    save_face = {'face': face,
+                                 'orginal_pseudogroup': G_copy,
+                                 'simplified_interval': simplified_interval,
+                                 'simplified_pairings': simplified_pairings,
+                                 'pattern': result}
+                    save.append(save_face)
+                    found = True
+                    tri_found = True
+                    break
+
+            if not found:
+                tri_found = False
+                save_face = {'face': face,
+                             'pattern': 'not_found'}
+                save.append(save_face)
+                break
+        print(save)
