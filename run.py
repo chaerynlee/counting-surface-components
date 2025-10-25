@@ -844,7 +844,7 @@ def main_pg_reduce_8subspaces():
 
     for filename in PG_list:
         face_num = filename[-1]
-        with open(filename, 'rb') as F:
+        with open('/data/keeling/a/chaeryn2/patterns/' + filename, 'rb') as F:
             master = pickle.load(F)
         for i, T in enumerate(transforms):
             results = copy.deepcopy(master)
