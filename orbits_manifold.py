@@ -1062,7 +1062,6 @@ class Pseudogroup:
 class Pseudogroup_comparable():
     """
     Pseudogroup where all polynomials are comparable.
-    Should be constructed with intervals and pairings obtained from Pseudogroup after reducing.
     """
     def __init__(self, pairings, universe):
         self.pairings = pairings
@@ -1072,15 +1071,15 @@ class Pseudogroup_comparable():
             self.universe = ToInterval(universe)
         # self.check_comparable()
 
-        self.evaluations = []
-        num_var = universe.end.num_var
-        for comb in itertools.product(range(1, 40), repeat=num_var):
-            assign = dict()
-            for n in range(num_var):
-                var_name = 'x' + str(n)
-                assign[var_name] = comb[n]
-            eval = evaluate_pseudogroup(self.universe, self.pairings, assign)
-            self.evaluations.append(eval)
+        # self.evaluations = []
+        # num_var = universe.end.num_var
+        # for comb in itertools.product(range(1, 40), repeat=num_var):
+        #     assign = dict()
+        #     for n in range(num_var):
+        #         var_name = 'x' + str(n)
+        #         assign[var_name] = comb[n]
+        #     eval = evaluate_pseudogroup(self.universe, self.pairings, assign)
+        #     self.evaluations.append(eval)
 
     def __repr__(self):
         result = 'Pseudogroup on %s:\n' % str(self.universe)
@@ -1103,18 +1102,18 @@ class Pseudogroup_comparable():
                 if (x < y) == 'unknown':
                     raise ValueError(f'Some polynomials are not comparable:{x}, {y}')
 
-    def evaluate(self):
-        current_evaluations = []
-        num_var = self.universe.end.num_var
-        for comb in itertools.product(range(1, 40), repeat=num_var):
-            assign = dict()
-            for n in range(num_var):
-                var_name = 'x' + str(n)
-                assign[var_name] = comb[n]
-            eval = evaluate_pseudogroup(self.universe, self.pairings, assign)
-            current_evaluations.append(eval)
-        if self.evaluations != current_evaluations:
-            raise ValueError(f'The pseudogroup evaluations have changed:\n{self.evaluations}\n{current_evaluations}')
+    # def evaluate(self):
+    #     current_evaluations = []
+    #     num_var = self.universe.end.num_var
+    #     for comb in itertools.product(range(1, 40), repeat=num_var):
+    #         assign = dict()
+    #         for n in range(num_var):
+    #             var_name = 'x' + str(n)
+    #             assign[var_name] = comb[n]
+    #         eval = evaluate_pseudogroup(self.universe, self.pairings, assign)
+    #         current_evaluations.append(eval)
+    #     if self.evaluations != current_evaluations:
+    #         raise ValueError(f'The pseudogroup evaluations have changed:\n{self.evaluations}\n{current_evaluations}')
 
     def transform(self, transform):
         self.universe = Interval(linear_transform_poly(self.universe.start, transform), linear_transform_poly(self.universe.end, transform))

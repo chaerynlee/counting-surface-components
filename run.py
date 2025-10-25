@@ -774,9 +774,9 @@ def main_find_gen_fcn_50():
         with open(directory + filename, 'wb') as file:
             pickle.dump(save, file)
 
-def main_original_so_irregular():
+def main_original_pg_irregular():
     """
-    Finds all original SurfacetoOrbits for irregular manifolds.
+    Finds all original pseudogroups (comparable version) for irregular manifolds.
     There are 37 types of manifolds in 'manifolds_by_genfcn'
     """
     I = int(os.environ['SLURM_ARRAY_TASK_ID'])
@@ -804,17 +804,18 @@ def main_original_so_irregular():
                 vertex_surfaces = [regina.NormalSurface(T, regina.NS_QUAD_CLOSED, vec) for vec in
                                    vertex_surface_vectors]
                 SO = SurfacetoOrbit(vertex_surfaces)
+                G = Pseudogroup_comparable(SO.pairings, SO.interval)
                 save = {'manifold': M,
                         'LW_complex': LWC_info,
-                        'surface_to_orbit': SO}
+                        'pseudogroup': G}
                 directory = '/data/keeling/a/chaeryn2/patterns/'
-                filename = f'surfacetoorbit_{M}_face{face_num}'
+                filename = f'pseudogroup_{M}_face{face_num}'
                 with open(directory + filename, 'wb') as file:
                     pickle.dump(save, file)
 
 def main_simplify_pg_8subspaces():
     """
-    Retrieves information from results from main_original_so_irregular() and simplifies the pseudogroup by AHT method.
+    Retrieves information from results from main_original_pg_irregular() and simplifies the pseudogroup by AHT method.
     To take care of cases that need a comparison, divides the x0, x1 plane into 8 subspaces.
     """
     pass
@@ -913,4 +914,4 @@ def irr_manifolds_by_ebg():
 
 
 if __name__ == '__main__':
-    main_original_so_irregular()
+    main_original_pg_irregular()
