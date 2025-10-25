@@ -629,7 +629,6 @@ def main_o9_41182():
         else:
             continue
 
-
 def main_o9_41182_randomize():
     """
     Continues to randomize triangulations to find one where the pseudogroups of all lw-faces can be simplified.
@@ -683,7 +682,6 @@ def main_o9_41182_randomize():
         filename = f'o9_41182_{M.triangulation_isosig()}_result'
         with open(directory + filename, 'wb') as file:
             pickle.dump(save, file)
-
 
 def recreate_example(M):
     """
@@ -782,11 +780,11 @@ def main_find_gen_fcn_50():
         with open(directory + filename, 'wb') as file:
             pickle.dump(save, file)
 
-def main_original_pg():
+def main_original_pg_reduce():
     """
-    Finds all original pseudogroups (comparable version).
-    Has been run on all irregular manifolds (irr_manifolds_by_genfcn) and
-    manifolds with least LW faces (manifolds_with_least_LWfaces.txt) for each gen fcn.
+    Finds all original pseudogroups (comparable version) then reduces as much as possible.
+    Saves both the original pseudogroup and reduced pseudogroup.
+    Has been run manifolds with least LW faces (manifolds_with_least_LWfaces.txt) for each gen fcn.
     """
     i = int(os.environ['SLURM_ARRAY_TASK_ID'])
 
@@ -812,20 +810,58 @@ def main_original_pg():
                                vertex_surface_vectors]
             SO = SurfacetoOrbit(vertex_surfaces)
             G = Pseudogroup_comparable(SO.pairings, SO.interval)
+            G_copy = copy.deepcopy(G)
+            count = G.reduce()
             save = {'manifold': M,
                     'LW_complex': LWC_info,
-                    'pseudogroup': G}
+                    'original_pseudogroup': G_copy,
+                    'reduced_pseudogroup': G,
+                    'count': count}
             directory = '/data/keeling/a/chaeryn2/patterns/'
             filename = f'pseudogroup_{M}_face{face_num}'
             with open(directory + filename, 'wb') as file:
                 pickle.dump(save, file)
 
-def main_simplify_pg_8subspaces():
+def main_pg_reduce_8subspaces():
     """
     Retrieves information from results from main_original_pg() and simplifies the pseudogroup by AHT method.
     To take care of cases that need a comparison, divides the x0, x1 plane into 8 subspaces.
     """
-    pass
+    task = int(os.environ['SLURM_ARRAY_TASK_ID'])
+    t = open(os.getcwd() + '/manifolds_with_least_LWfaces.txt')
+    mflds = t.read().split('\n')
+    M = mflds[task]
+    PG_list = [f for f in os.listdir('/data/keeling/a/chaeryn2/patterns/') if f'pseudogroup_{M}' in f]
+
+    transforms = [[{'t0': 1, 't1': 0}, {'t0': 3, 't1': 1}],
+                  [{'t0': 1, 't1': 1}, {'t0': 2, 't1': 3}],
+                  [{'t0': 2, 't1': 1}, {'t0': 3, 't1': 2}],
+                  [{'t0': 1, 't1': 2}, {'t0': 1, 't1': 3}],
+                  [{'t0': 3, 't1': 1}, {'t0': 2, 't1': 1}],
+                  [{'t0': 2, 't1': 3}, {'t0': 1, 't1': 2}],
+                  [{'t0': 3, 't1': 2}, {'t0': 1, 't1': 1}],
+                  [{'t0': 1, 't1': 3}, {'t0': 0, 't1': 1}]]
+
+    for filename in PG_list:
+        face_num = filename[-1]
+        with open(filename, 'rb') as F:
+            master = pickle.load(F)
+        for i, T in enumerate(transforms):
+            results = copy.deepcopy(master)
+            if not isinstance(results['count'], Pseudogroup_comparable):
+                continue
+            else:
+                G = results['reduced_pseudogroup']
+                G.transform(T)
+                count = G.reduce()
+                save = {'transform': T,
+                        'reduced_pseudogroup': G,
+                        'count': count}
+                directory = '/data/keeling/a/chaeryn2/patterns/'
+                filename = f'reduced_pg_{M}_face{face_num}_case{i}'
+                with open(directory + filename, 'wb') as file:
+                    pickle.dump(save, file)
+
 
 # this function has already been run on Keeling and necessary results have been produced
 def check_extend_gen_fcn():
@@ -921,4 +957,4 @@ def irr_manifolds_by_ebg():
 
 
 if __name__ == '__main__':
-    main_original_pg()
+    main_original_pg_reduce()

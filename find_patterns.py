@@ -2,7 +2,7 @@ from count_components_manifold import *
 from orbits_manifold import *
 from nscomplex_updated import *
 import count_components
-import os, itertools, random, math, time
+import os, itertools, random, math, time, copy
 import pandas as pd
 
 def significant_col(interval, pairings, num_var, subcollection_indices, var_range=50):
@@ -260,46 +260,94 @@ if __name__ == '__main__':
     #     count = extend_gen_fcn(M, 21, all=True)
     #     print(M, actual_count == count)
 
-    # poly1 = Polynomial(constant=0, **{'x0':1, 'x1':0})
-    # poly2 = Polynomial(constant=0, **{'x0':0, 'x1':1})
-    # poly3 = Polynomial(constant=0, **{'x0':5, 'x1':6})
-    # poly4 = Polynomial(constant=0, **{'x0':8, 'x1':12})
-    # int1 = Interval(poly1, poly2)
-    # int2 = Interval(poly3, poly4)
-    # print(int1 < int2)
-    # print({'y0': 1, 'y1': 1}, {'y0': 0, 'y1': 1})
-    # print(linear_transform_poly(poly1, [{'y0': 1, 'y1': 1}, {'y0': 0, 'y1': 1}]))
-    # print(linear_transform_poly(poly2, [{'y0': 1, 'y1': 1}, {'y0': 0, 'y1': 1}]))
-    # print(linear_transform_poly(poly3, [{'y0': 1, 'y1': 1}, {'y0': 0, 'y1': 1}]))
-    #
-    # print({'t0': 1, 't1': 0}, {'t0': 1, 't1': 1})
-    # print(linear_transform_poly(poly1, [{'t0': 1, 't1': 0}, {'t0': 1, 't1': 1}]))
-    # print(linear_transform_poly(poly2, [{'t0': 1, 't1': 0}, {'t0': 1, 't1': 1}]))
-
-
     M = 'o9_41182'
+
+    print(M)
+
     df = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
     i = df.index[df['name'] == M].values[0]
     TS = snappy.Manifold(df.iloc[i, df.columns.get_loc('tri_used')])
     T = regina.Triangulation3(TS)
     vector_info = df.iloc[i, df.columns.get_loc('vertex_surfaces')]
     LWC_info = df.iloc[i, df.columns.get_loc('max_faces')]
+    #
+    # for face_num, face in enumerate(eval(LWC_info)):
+    #     print(face_num)
+    #     surface_names = face['verts']
+    #     if len(surface_names) == 1:
+    #         continue
+    #     else:
+    #         vertex_surface_vectors = [eval(vector_info)[name] for name in surface_names]
+    #         vertex_surfaces = [regina.NormalSurface(T, regina.NS_QUAD_CLOSED, vec) for vec in
+    #                            vertex_surface_vectors]
+    #         SO = SurfacetoOrbit(vertex_surfaces)
+    #         G = Pseudogroup_comparable(SO.pairings, SO.interval)
+    #         G_copy = copy.deepcopy(G)
+    #         count = G.reduce()
+    #         save = {'manifold': M,
+    #                 'LW_complex': LWC_info,
+    #                 'original_pseudogroup': G_copy,
+    #                 'reduced_pseudogroup': G,
+    #                 'count': count}
+    #         print(save)
+    #         filename = f'pseudogroup_{M}_face{face_num}'
+    #         with open(filename, 'wb') as file:
+    #             pickle.dump(save, file)
 
-    face = eval(LWC_info)[1]
-    print(face)
-    surface_names = face['verts']
-    print(surface_names)
-    vertex_surface_vectors = [eval(vector_info)[name] for name in surface_names]
-    vertex_surfaces = [regina.NormalSurface(T, regina.NS_QUAD_CLOSED, vec) for vec in vertex_surface_vectors]
-    SO = SurfacetoOrbit(vertex_surfaces)
-    # G = Pseudogroup(SO.pairings, SO.interval, SO.interval_divided)
-    # simplified_interval, simplified_pairings = G.reduce_amap()
-    # GS = Pseudogroup_comparable(simplified_pairings, simplified_interval)
-    GS = Pseudogroup_comparable(SO.pairings, SO.interval)
-    GS.reduce()
 
+    print(M)
+    PG_list = [f for f in os.listdir() if f'pseudogroup_{M}' in f]
+    print(PG_list)
+
+    transforms = [[{'t0': 1, 't1': 0}, {'t0': 3, 't1': 1}],
+                  [{'t0': 1, 't1': 1}, {'t0': 2, 't1': 3}],
+                  [{'t0': 2, 't1': 1}, {'t0': 3, 't1': 2}],
+                  [{'t0': 1, 't1': 2}, {'t0': 1, 't1': 3}],
+                  [{'t0': 3, 't1': 1}, {'t0': 2, 't1': 1}],
+                  [{'t0': 2, 't1': 3}, {'t0': 1, 't1': 2}],
+                  [{'t0': 3, 't1': 2}, {'t0': 1, 't1': 1}],
+                  [{'t0': 1, 't1': 3}, {'t0': 0, 't1': 1}]]
+    for filename in PG_list:
+        face_num = filename[-1]
+        print('face', face_num)
+        with open(filename, 'rb') as F:
+            master = pickle.load(F)
+        for i, T in enumerate(transforms):
+            print(i)
+            results = copy.deepcopy(master)
+            if not isinstance(results['count'], Pseudogroup_comparable):
+                print('skip')
+                continue
+            else:
+                print('compute')
+                G = results['reduced_pseudogroup']
+                G.transform(T)
+                count = G.reduce()
+                save = {'transform': T,
+                        'reduced_pseudogroup': G,
+                        'count': count}
+                print(save)
+                filename = f'reduced_pg_{M}_face{face_num}_case{i}'
+                with open(filename, 'wb') as file:
+                    pickle.dump(save, file)
+
+
+
+    # face = eval(LWC_info)[3]
+    # print(face)
+    # surface_names = face['verts']
+    # print(surface_names)
+    # vertex_surface_vectors = [eval(vector_info)[name] for name in surface_names]
+    # vertex_surfaces = [regina.NormalSurface(T, regina.NS_QUAD_CLOSED, vec) for vec in vertex_surface_vectors]
+    # SO = SurfacetoOrbit(vertex_surfaces)
+    # # G = Pseudogroup(SO.pairings, SO.interval, SO.interval_divided)
+    # # simplified_interval, simplified_pairings = G.reduce_amap()
+    # # GS = Pseudogroup_comparable(simplified_pairings, simplified_interval)
+    # GS = Pseudogroup_comparable(SO.pairings, SO.interval)
+    # print(GS.reduce())
+    #
     # GS.transform([{'y0': 1, 'y1': 0}, {'y0': 1, 'y1': 1}])
-    # GS.reduce()
+    # print(GS.reduce())
     # GS.transform([{'t0': 1, 't1': 0}, {'t0': 1, 't1': 1}])
     # GS.reduce()
 
