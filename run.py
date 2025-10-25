@@ -914,6 +914,4 @@ def irr_manifolds_by_ebg():
 
 
 if __name__ == '__main__':
-    main_o9_41182_randomize()
-    # recreate_example('o9_41182')
-    # main_o9_41182()
+    main_original_pg_irregular()
