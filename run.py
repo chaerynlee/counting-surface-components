@@ -814,7 +814,7 @@ def main_original_so_irregular():
 
 def main_simplify_pg_8subspaces():
     """
-    Retrieves information from results from main_original_pg_irregular() and simplifies the pseudogroup by AHT method.
+    Retrieves information from results from main_original_so_irregular() and simplifies the pseudogroup by AHT method.
     To take care of cases that need a comparison, divides the x0, x1 plane into 8 subspaces.
     """
     pass
@@ -913,4 +913,4 @@ def irr_manifolds_by_ebg():
 
 
 if __name__ == '__main__':
-    main_original_pg_irregular()
+    main_original_so_irregular()
