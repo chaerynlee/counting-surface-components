@@ -957,4 +957,4 @@ def irr_manifolds_by_ebg():
 
 
 if __name__ == '__main__':
-    main_original_pg_reduce()
+    main_pg_reduce_8subspaces()
