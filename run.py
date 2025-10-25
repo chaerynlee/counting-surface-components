@@ -774,9 +774,9 @@ def main_find_gen_fcn_50():
         with open(directory + filename, 'wb') as file:
             pickle.dump(save, file)
 
-def main_original_pg_irregular():
+def main_original_so_irregular():
     """
-    Finds all original pseudogroups for irregular manifolds.
+    Finds all original SurfacetoOrbits for irregular manifolds.
     There are 37 types of manifolds in 'manifolds_by_genfcn'
     """
     I = int(os.environ['SLURM_ARRAY_TASK_ID'])
@@ -804,12 +804,11 @@ def main_original_pg_irregular():
                 vertex_surfaces = [regina.NormalSurface(T, regina.NS_QUAD_CLOSED, vec) for vec in
                                    vertex_surface_vectors]
                 SO = SurfacetoOrbit(vertex_surfaces)
-                G = Pseudogroup(SO.pairings, SO.interval, SO.interval_divided)
                 save = {'manifold': M,
                         'LW_complex': LWC_info,
-                        'orginal_psuedogroup': G_copy}
+                        'surface_to_orbit': SO}
                 directory = '/data/keeling/a/chaeryn2/patterns/'
-                filename = f'pseudogroup_{M}_face{face_num}'
+                filename = f'surfacetoorbit_{M}_face{face_num}'
                 with open(directory + filename, 'wb') as file:
                     pickle.dump(save, file)
 
