@@ -1,6 +1,6 @@
 #! /data/keeling/a/nmd/miniconda3/envs/sage_full/bin/sage-python -u
 
-#SBATCH --array=0-36
+#SBATCH --array=0-75
 #SBATCH --partition m
 #SBATCH --tasks=1
 #SBATCH --mem-per-cpu=4G
@@ -758,6 +758,14 @@ def main_find_gen_fcn_50():
     """
     task = int(os.environ['SLURM_ARRAY_TASK_ID'])
 
+    df_all = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
+
+    f = open(os.getcwd() + '/manifolds_with_least_LWfaces.txt')
+    mflds = f.read().split('\n')
+    df = df_all[df_all['name'].isin(mflds)]
+
+    task = int(os.environ['SLURM_ARRAY_TASK_ID'])
+
     f = open(os.getcwd() + '/manifolds_with_surface_counts.txt')
     mflds = f.read().split('\n')
     task_list = []
@@ -774,48 +782,47 @@ def main_find_gen_fcn_50():
         with open(directory + filename, 'wb') as file:
             pickle.dump(save, file)
 
-def main_original_pg_irregular():
+def main_original_pg():
     """
-    Finds all original pseudogroups (comparable version) for irregular manifolds.
-    There are 37 types of manifolds in 'manifolds_by_genfcn'
+    Finds all original pseudogroups (comparable version).
+    Has been run on all irregular manifolds (irr_manifolds_by_genfcn) and
+    manifolds with least LW faces (manifolds_with_least_LWfaces.txt) for each gen fcn.
     """
-    I = int(os.environ['SLURM_ARRAY_TASK_ID'])
+    i = int(os.environ['SLURM_ARRAY_TASK_ID'])
 
     df_all = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
 
-    with open(os.getcwd() + '/irr_manifolds_by_genfcn', 'rb') as file:
-        f = pickle.load(file)
-    mflds = f[I]
+    f = open(os.getcwd() + '/manifolds_with_least_LWfaces.txt')
+    mflds = f.read().split('\n')
     df = df_all[df_all['name'].isin(mflds)]
 
-    for i in range(len(df.index)):
-        M = df.iloc[i, df.columns.get_loc('name')]
-        TS = snappy.Manifold(df.iloc[i, df.columns.get_loc('tri_used')])
-        T = regina.Triangulation3(TS)
-        vector_info = df.iloc[i, df.columns.get_loc('vertex_surfaces')]
-        LWC_info = df.iloc[i, df.columns.get_loc('max_faces')]
+    M = df.iloc[i, df.columns.get_loc('name')]
+    TS = snappy.Manifold(df.iloc[i, df.columns.get_loc('tri_used')])
+    T = regina.Triangulation3(TS)
+    vector_info = df.iloc[i, df.columns.get_loc('vertex_surfaces')]
+    LWC_info = df.iloc[i, df.columns.get_loc('max_faces')]
 
-        for face_num, face in enumerate(eval(LWC_info)):
-            surface_names = face['verts']
-            if len(surface_names) == 1:
-                continue
-            else:
-                vertex_surface_vectors = [eval(vector_info)[name] for name in surface_names]
-                vertex_surfaces = [regina.NormalSurface(T, regina.NS_QUAD_CLOSED, vec) for vec in
-                                   vertex_surface_vectors]
-                SO = SurfacetoOrbit(vertex_surfaces)
-                G = Pseudogroup_comparable(SO.pairings, SO.interval)
-                save = {'manifold': M,
-                        'LW_complex': LWC_info,
-                        'pseudogroup': G}
-                directory = '/data/keeling/a/chaeryn2/patterns/'
-                filename = f'pseudogroup_{M}_face{face_num}'
-                with open(directory + filename, 'wb') as file:
-                    pickle.dump(save, file)
+    for face_num, face in enumerate(eval(LWC_info)):
+        surface_names = face['verts']
+        if len(surface_names) == 1:
+            continue
+        else:
+            vertex_surface_vectors = [eval(vector_info)[name] for name in surface_names]
+            vertex_surfaces = [regina.NormalSurface(T, regina.NS_QUAD_CLOSED, vec) for vec in
+                               vertex_surface_vectors]
+            SO = SurfacetoOrbit(vertex_surfaces)
+            G = Pseudogroup_comparable(SO.pairings, SO.interval)
+            save = {'manifold': M,
+                    'LW_complex': LWC_info,
+                    'pseudogroup': G}
+            directory = '/data/keeling/a/chaeryn2/patterns/'
+            filename = f'pseudogroup_{M}_face{face_num}'
+            with open(directory + filename, 'wb') as file:
+                pickle.dump(save, file)
 
 def main_simplify_pg_8subspaces():
     """
-    Retrieves information from results from main_original_pg_irregular() and simplifies the pseudogroup by AHT method.
+    Retrieves information from results from main_original_pg() and simplifies the pseudogroup by AHT method.
     To take care of cases that need a comparison, divides the x0, x1 plane into 8 subspaces.
     """
     pass
@@ -914,4 +921,4 @@ def irr_manifolds_by_ebg():
 
 
 if __name__ == '__main__':
-    main_original_pg_irregular()
+    main_original_pg()
