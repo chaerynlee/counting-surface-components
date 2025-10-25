@@ -1,53 +1,9 @@
 from count_components_manifold import *
 from orbits_manifold import *
-from Orbits import orbits
 from nscomplex_updated import *
 import count_components
-import os, itertools, random, math, time, copy
+import os, itertools, random, math, time
 import pandas as pd
-import numpy as np
-import snappy.snap.t3mlite as t3m
-
-def evaluate_interval(interval, assign):
-    """
-    Evaluates given interval with the variables in assign (must be a dictionary with the right variable names)
-    and returns an orbits.Interval.
-    """
-    return orbits.Interval(interval.start.evaluate(**assign) + 1, interval.end.evaluate(**assign))
-
-def evaluate_pairing(pairing, assign):
-    """
-    Evaluates given pairing with the variables in assign (must be a dictionary with the right variable names)
-    and returns an orbits.Pairing.
-    """
-    domain_start = pairing.domain.start.evaluate(**assign)
-    domain_end = pairing.domain.end.evaluate(**assign)
-    iso_shift = pairing.isometry.shift.evaluate(**assign)
-    iso_flip = pairing.isometry.flip
-    if not iso_flip:
-        return orbits.Pairing(orbits.Interval(domain_start + 1, domain_end), orbits.Isometry(iso_shift, iso_flip))
-    if iso_flip:
-        return orbits.Pairing(orbits.Interval(domain_start + 1, domain_end), orbits.Isometry(iso_shift + 1, iso_flip))
-
-def evaluate_pseudogroup(interval, pairings, assign):
-    """
-    Evaluates given interval and pairings of polynomials with the variables in assign (must be a dictionary with the right variable names)
-    and returns the number of orbits.
-    """
-    assigned_interval = orbits.Interval(interval.start.evaluate(**assign) + 1, interval.end.evaluate(**assign))
-    assigned_pairings = []
-    for p in pairings:
-        domain_start = p.domain.start.evaluate(**assign)
-        domain_end = p.domain.end.evaluate(**assign)
-        iso_shift = p.isometry.shift.evaluate(**assign)
-        iso_flip = p.isometry.flip
-        if not iso_flip:
-            assigned_pairings.append(orbits.Pairing(orbits.Interval(domain_start + 1, domain_end), orbits.Isometry(iso_shift, iso_flip)))
-        if iso_flip:
-            assigned_pairings.append(orbits.Pairing(orbits.Interval(domain_start + 1, domain_end), orbits.Isometry(iso_shift + 1, iso_flip)))
-
-    G = orbits.Pseudogroup(assigned_pairings, assigned_interval)
-    return G.reduce()
 
 def significant_col(interval, pairings, num_var, subcollection_indices, var_range=50):
     """
@@ -304,25 +260,84 @@ if __name__ == '__main__':
     #     count = extend_gen_fcn(M, 21, all=True)
     #     print(M, actual_count == count)
 
-    # df = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
-    # i = df.index[df['name'] == M].values[0]
-    # TS = snappy.Manifold(df.iloc[i, df.columns.get_loc('tri_used')])
-    # T = regina.Triangulation3(TS)
-    # vector_info = df.iloc[i, df.columns.get_loc('vertex_surfaces')]
-    # LWC_info = df.iloc[i, df.columns.get_loc('max_faces')]
+    # poly1 = Polynomial(constant=0, **{'x0':1, 'x1':0})
+    # poly2 = Polynomial(constant=0, **{'x0':0, 'x1':1})
+    # poly3 = Polynomial(constant=0, **{'x0':5, 'x1':6})
+    # poly4 = Polynomial(constant=0, **{'x0':8, 'x1':12})
+    # int1 = Interval(poly1, poly2)
+    # int2 = Interval(poly3, poly4)
+    # print(int1 < int2)
+    # print({'y0': 1, 'y1': 1}, {'y0': 0, 'y1': 1})
+    # print(linear_transform_poly(poly1, [{'y0': 1, 'y1': 1}, {'y0': 0, 'y1': 1}]))
+    # print(linear_transform_poly(poly2, [{'y0': 1, 'y1': 1}, {'y0': 0, 'y1': 1}]))
+    # print(linear_transform_poly(poly3, [{'y0': 1, 'y1': 1}, {'y0': 0, 'y1': 1}]))
     #
-    # for face in eval(LWC_info):
-    #     surface_names = face['verts']
-    #     print(surface_names)
-    #     vertex_surface_vectors = [eval(vector_info)[name] for name in surface_names]
-    #     vertex_surfaces = [regina.NormalSurface(T, regina.NS_QUAD_CLOSED, vec) for vec in vertex_surface_vectors]
-    #     SO = SurfacetoOrbit(vertex_surfaces)
-    #     for n in range(1, 7):
-    #         for m in range(1, 7):
-    #             count = evaluate_pseudogroup(SO.interval, SO.pairings, {'x0': n, 'x1': m})
-    #             S = vertex_surfaces[0] * regina.LargeInteger(n) + vertex_surfaces[1] * regina.LargeInteger(m)
-    #             print(n, m, S.eulerChar(), S.isConnected(), count_components.SurfacetoOrbit(S).countcomponents(), count)
-    #     print()
+    # print({'t0': 1, 't1': 0}, {'t0': 1, 't1': 1})
+    # print(linear_transform_poly(poly1, [{'t0': 1, 't1': 0}, {'t0': 1, 't1': 1}]))
+    # print(linear_transform_poly(poly2, [{'t0': 1, 't1': 0}, {'t0': 1, 't1': 1}]))
+
+
+    M = 'o9_41182'
+    df = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
+    i = df.index[df['name'] == M].values[0]
+    TS = snappy.Manifold(df.iloc[i, df.columns.get_loc('tri_used')])
+    T = regina.Triangulation3(TS)
+    vector_info = df.iloc[i, df.columns.get_loc('vertex_surfaces')]
+    LWC_info = df.iloc[i, df.columns.get_loc('max_faces')]
+
+    face = eval(LWC_info)[1]
+    print(face)
+    surface_names = face['verts']
+    print(surface_names)
+    vertex_surface_vectors = [eval(vector_info)[name] for name in surface_names]
+    vertex_surfaces = [regina.NormalSurface(T, regina.NS_QUAD_CLOSED, vec) for vec in vertex_surface_vectors]
+    SO = SurfacetoOrbit(vertex_surfaces)
+    # G = Pseudogroup(SO.pairings, SO.interval, SO.interval_divided)
+    # simplified_interval, simplified_pairings = G.reduce_amap()
+    # GS = Pseudogroup_comparable(simplified_pairings, simplified_interval)
+    GS = Pseudogroup_comparable(SO.pairings, SO.interval)
+    GS.reduce()
+
+    # GS.transform([{'y0': 1, 'y1': 0}, {'y0': 1, 'y1': 1}])
+    # GS.reduce()
+    # GS.transform([{'t0': 1, 't1': 0}, {'t0': 1, 't1': 1}])
+    # GS.reduce()
+
+    # GS.transform([{'z0': 1, 'z1': 0}, {'z0': 2, 'z1': 1}])
+    # print(GS.reduce())
+    # GS.transform([{'z0': 1, 'z1': 1}, {'z0': 1, 'z1': 2}])
+    # print(GS.reduce())
+    # GS.transform([{'z0': 2, 'z1': 1}, {'z0': 1, 'z1': 1}])
+    # print(GS.reduce())
+    # GS.transform([{'z0': 1, 'z1': 2}, {'z0': 0, 'z1': 1}])
+    # print(GS.reduce())
+
+    # GS.transform([{'z0': 1, 'z1': 0}, {'z0': 3, 'z1': 1}])
+    # print(GS.reduce())
+    # GS.transform([{'z0': 1, 'z1': 1}, {'z0': 2, 'z1': 3}])
+    # print(GS.reduce())
+    # GS.transform([{'z0': 2, 'z1': 1}, {'z0': 3, 'z1': 2}])
+    # print(GS.reduce())
+    # GS.transform([{'z0': 1, 'z1': 2}, {'z0': 1, 'z1': 3}])
+    # print(GS.reduce())
+    # GS.transform([{'z0': 3, 'z1': 1}, {'z0': 2, 'z1': 1}])
+    # print(GS.reduce())
+    # GS.transform([{'z0': 2, 'z1': 3}, {'z0': 1, 'z1': 2}])
+    # print(GS.reduce())
+    # GS.transform([{'z0': 3, 'z1': 2}, {'z0': 1, 'z1': 1}])
+    # print(GS.reduce())
+    # GS.transform([{'z0': 1, 'z1': 3}, {'z0': 0, 'z1': 1}])
+    # print(GS.reduce())
+
+
+
+
+    # for n in range(1, 7):
+    #     for m in range(1, 7):
+    #         count = evaluate_pseudogroup(SO.interval, SO.pairings, {'x0': n, 'x1': m})
+    #         S = vertex_surfaces[0] * regina.LargeInteger(n) + vertex_surfaces[1] * regina.LargeInteger(m)
+    #         print(n, m, S.eulerChar(), S.isConnected(), count_components.SurfacetoOrbit(S).countcomponents(), count)
+    # print()
 
     # M = snappy.Manifold('jLLPzPQcdeffghiiihsteaviivg_bBBa')
     # print(M.triangulation_isosig())
@@ -352,45 +367,3 @@ if __name__ == '__main__':
     #     else:
     #         continue
 
-    M = snappy.Manifold('o9_41182')
-    tri_found = False
-    tri_isosig = []
-    while not tri_found:
-        while M.triangulation_isosig() in tri_isosig:
-            M.randomize()
-        tri_isosig.append(M.triangulation_isosig())
-        print(M.triangulation_isosig())
-
-        CS = connected_surfaces.ConnectedSurfaces(M)
-        LW = CS.essential_faces_of_normal_polytope()
-        LW_max = LW.maximal
-
-        save = [M.triangulation_isosig()]
-        for face in LW_max:
-            vertex_surfaces = [S.surface for S in face.vertex_surfaces]
-            SO = SurfacetoOrbit(vertex_surfaces)
-            G = Pseudogroup(SO.pairings, SO.interval, SO.interval_divided)
-            G_copy = copy.deepcopy(G)
-            simplified_interval, simplified_pairings = G.reduce_amap()
-
-            found = False
-            for n in range(2, 4):
-                result = test_all_subcol(simplified_interval, simplified_pairings, SO.num_vertex, n)
-                if result:
-                    save_face = {'face': face,
-                                 'orginal_pseudogroup': G_copy,
-                                 'simplified_interval': simplified_interval,
-                                 'simplified_pairings': simplified_pairings,
-                                 'pattern': result}
-                    save.append(save_face)
-                    found = True
-                    tri_found = True
-                    break
-
-            if not found:
-                tri_found = False
-                save_face = {'face': face,
-                             'pattern': 'not_found'}
-                save.append(save_face)
-                break
-        print(save)

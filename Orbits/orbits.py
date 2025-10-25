@@ -146,7 +146,7 @@ class Isometry:
         """
         An Isometry as a mapping (of an integer or an interval).
         """
-        if isinstance(x, int):
+        if isinstance(x, int) or isinstance(x, float):
             if self.flip:
                 return -x + self.shift
             else:
@@ -337,6 +337,8 @@ class Pseudogroup:
         if universe: 
             universe = ToInterval(universe)
             if start < universe.start or end > universe.end:
+                print(universe)
+                print(self.pairings)
                 raise ValueError('Universe must contain all domains and ranges.')
             self.universe = universe
         else:
