@@ -836,8 +836,8 @@ def main_pg_reduce_8subspaces():
         f = pickle.load(g)
     mflds = f[task]
     PG_list = []
-    for i in range(min(len(mflds), 20)):
-        M = mflds[i]
+    for j in range(min(len(mflds), 20)):
+        M = mflds[j]
         for file in os.listdir('/data/keeling/a/chaeryn2/patterns/'):
             if f'pseudogroup_{M}' in file:
                 PG_list.append(file)
@@ -852,7 +852,7 @@ def main_pg_reduce_8subspaces():
                   [{'t0': 1, 't1': 3}, {'t0': 0, 't1': 1}]]
 
     for filename in PG_list:
-        manifold_name = filename
+        manifold_name = filename[12:-6]
         face_num = filename[-1]
         with open('/data/keeling/a/chaeryn2/patterns/' + filename, 'rb') as F:
             master = pickle.load(F)
@@ -868,10 +868,9 @@ def main_pg_reduce_8subspaces():
                         'reduced_pseudogroup': G,
                         'count': count}
                 directory = '/data/keeling/a/chaeryn2/patterns/'
-                filename = f'reduced_pg_{M}_face{face_num}_case{i}'
+                filename = f'reduced_pg_{manifold_name}_face{face_num}_case{i}'
                 with open(directory + filename, 'wb') as file:
                     pickle.dump(save, file)
-
 
 # this function has already been run on Keeling and necessary results have been produced
 def check_extend_gen_fcn():
@@ -979,4 +978,4 @@ def lw_complexes_1dim_by_ebg():
         pickle.dump(dim1_manifolds_by_gen, f)
 
 if __name__ == '__main__':
-    main_original_pg_reduce()
+    main_pg_reduce_8subspaces()
