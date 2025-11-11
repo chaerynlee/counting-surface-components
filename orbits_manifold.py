@@ -216,6 +216,7 @@ class Polynomial:
             num += kwargs[var] * self.poly[var]
         return num
 
+
 def linear_transform_poly(poly, transform):
     """
     For now, for simplicity's sake poly must not have a constant()

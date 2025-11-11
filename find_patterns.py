@@ -270,34 +270,6 @@ if __name__ == '__main__':
     T = regina.Triangulation3(TS)
     vector_info = df.iloc[i, df.columns.get_loc('vertex_surfaces')]
     LWC_info = df.iloc[i, df.columns.get_loc('max_faces')]
-    #
-    # for face_num, face in enumerate(eval(LWC_info)):
-    #     print(face_num)
-    #     surface_names = face['verts']
-    #     if len(surface_names) == 1:
-    #         continue
-    #     else:
-    #         vertex_surface_vectors = [eval(vector_info)[name] for name in surface_names]
-    #         vertex_surfaces = [regina.NormalSurface(T, regina.NS_QUAD_CLOSED, vec) for vec in
-    #                            vertex_surface_vectors]
-    #         SO = SurfacetoOrbit(vertex_surfaces)
-    #         G = Pseudogroup_comparable(SO.pairings, SO.interval)
-    #         G_copy = copy.deepcopy(G)
-    #         count = G.reduce()
-    #         save = {'manifold': M,
-    #                 'LW_complex': LWC_info,
-    #                 'original_pseudogroup': G_copy,
-    #                 'reduced_pseudogroup': G,
-    #                 'count': count}
-    #         print(save)
-    #         filename = f'pseudogroup_{M}_face{face_num}'
-    #         with open(filename, 'wb') as file:
-    #             pickle.dump(save, file)
-
-
-    print(M)
-    PG_list = [f for f in os.listdir() if f'pseudogroup_{M}' in f]
-    print(PG_list)
 
     transforms = [[{'t0': 1, 't1': 0}, {'t0': 3, 't1': 1}],
                   [{'t0': 1, 't1': 1}, {'t0': 2, 't1': 3}],
@@ -307,31 +279,15 @@ if __name__ == '__main__':
                   [{'t0': 2, 't1': 3}, {'t0': 1, 't1': 2}],
                   [{'t0': 3, 't1': 2}, {'t0': 1, 't1': 1}],
                   [{'t0': 1, 't1': 3}, {'t0': 0, 't1': 1}]]
-    for filename in PG_list:
-        face_num = filename[-1]
-        print('face', face_num)
-        with open(filename, 'rb') as F:
-            master = pickle.load(F)
-        for i, T in enumerate(transforms):
-            print(i)
-            results = copy.deepcopy(master)
-            if not isinstance(results['count'], Pseudogroup_comparable):
-                print('skip')
-                continue
-            else:
-                print('compute')
-                G = results['reduced_pseudogroup']
-                G.transform(T)
-                count = G.reduce()
-                save = {'transform': T,
-                        'reduced_pseudogroup': G,
-                        'count': count}
-                print(save)
-                filename = f'reduced_pg_{M}_face{face_num}_case{i}'
-                with open(filename, 'wb') as file:
-                    pickle.dump(save, file)
 
-
+    inverse_transforms = [[{'x0': 1, 'x1': 0}, {'x0': -3, 'x1': 1}],
+                          [{'x0': 3, 'x1': -1}, {'x0': -2, 'x1': 1}],
+                          [{'x0': 2, 'x1': -1}, {'x0': -3, 'x1': 2}],
+                          [{'x0': 3, 'x1': -2}, {'x0': -1, 'x1': 1}],
+                          [{'x0': 1, 'x1': 1}, {'x0': -2, 'x1': 3}],
+                          [{'x0': 2, 'x1': -3}, {'x0': -1, 'x1': 2}],
+                          [{'x0': 1, 'x1': -2}, {'x0': -1, 'x1': 3}],
+                          [{'x0': 1, 'x1': -3}, {'x0': 0, 'x1': 1}]]
 
     # face = eval(LWC_info)[3]
     # print(face)
@@ -376,8 +332,6 @@ if __name__ == '__main__':
     # print(GS.reduce())
     # GS.transform([{'z0': 1, 'z1': 3}, {'z0': 0, 'z1': 1}])
     # print(GS.reduce())
-
-
 
 
     # for n in range(1, 7):

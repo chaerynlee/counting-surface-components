@@ -1,6 +1,6 @@
 #! /data/keeling/a/nmd/miniconda3/envs/sage_full/bin/sage-python -u
 
-#SBATCH --array=0-75
+#SBATCH --array=0-38
 #SBATCH --partition m
 #SBATCH --tasks=1
 #SBATCH --mem-per-cpu=4G
@@ -784,43 +784,46 @@ def main_original_pg_reduce():
     """
     Finds all original pseudogroups (comparable version) then reduces as much as possible.
     Saves both the original pseudogroup and reduced pseudogroup.
-    Has been run manifolds with least LW faces (manifolds_with_least_LWfaces.txt) for each gen fcn.
+    Has been run on manifolds with dim=1 LW faces (dim1_manifolds_by_gen), 39 types by genus count and up to max
+    20 manifolds for rach type.
     """
-    i = int(os.environ['SLURM_ARRAY_TASK_ID'])
+    task = int(os.environ['SLURM_ARRAY_TASK_ID'])
 
     df_all = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
 
-    f = open(os.getcwd() + '/manifolds_with_least_LWfaces.txt')
-    mflds = f.read().split('\n')
+    with open(os.getcwd() + 'dim1_manifolds_by_gen', 'rb') as file:
+        f = pickle.load(file)
+    mflds = f[task]
     df = df_all[df_all['name'].isin(mflds)]
 
-    M = df.iloc[i, df.columns.get_loc('name')]
-    TS = snappy.Manifold(df.iloc[i, df.columns.get_loc('tri_used')])
-    T = regina.Triangulation3(TS)
-    vector_info = df.iloc[i, df.columns.get_loc('vertex_surfaces')]
-    LWC_info = df.iloc[i, df.columns.get_loc('max_faces')]
+    for i in range(min(len(df.index), 20)):
+        M = df.iloc[i, df.columns.get_loc('name')]
+        TS = snappy.Manifold(df.iloc[i, df.columns.get_loc('tri_used')])
+        T = regina.Triangulation3(TS)
+        vector_info = df.iloc[i, df.columns.get_loc('vertex_surfaces')]
+        LWC_info = df.iloc[i, df.columns.get_loc('max_faces')]
 
-    for face_num, face in enumerate(eval(LWC_info)):
-        surface_names = face['verts']
-        if len(surface_names) == 1:
-            continue
-        else:
-            vertex_surface_vectors = [eval(vector_info)[name] for name in surface_names]
-            vertex_surfaces = [regina.NormalSurface(T, regina.NS_QUAD_CLOSED, vec) for vec in
-                               vertex_surface_vectors]
-            SO = SurfacetoOrbit(vertex_surfaces)
-            G = Pseudogroup_comparable(SO.pairings, SO.interval)
-            G_copy = copy.deepcopy(G)
-            count = G.reduce()
-            save = {'manifold': M,
-                    'LW_complex': LWC_info,
-                    'original_pseudogroup': G_copy,
-                    'reduced_pseudogroup': G,
-                    'count': count}
-            directory = '/data/keeling/a/chaeryn2/patterns/'
-            filename = f'pseudogroup_{M}_face{face_num}'
-            with open(directory + filename, 'wb') as file:
-                pickle.dump(save, file)
+        for face_num, face in enumerate(eval(LWC_info)):
+            surface_names = face['verts']
+            if len(surface_names) == 1:
+                continue
+            else:
+                vertex_surface_vectors = [eval(vector_info)[name] for name in surface_names]
+                vertex_surfaces = [regina.NormalSurface(T, regina.NS_QUAD_CLOSED, vec) for vec in
+                                   vertex_surface_vectors]
+                SO = SurfacetoOrbit(vertex_surfaces)
+                G = Pseudogroup_comparable(SO.pairings, SO.interval)
+                G_copy = copy.deepcopy(G)
+                count = G.reduce()
+                save = {'manifold': M,
+                        'LW_complex': LWC_info,
+                        'original_pseudogroup': G_copy,
+                        'reduced_pseudogroup': G,
+                        'count': count}
+                directory = '/data/keeling/a/chaeryn2/patterns/'
+                filename = f'pseudogroup_{M}_face{face_num}'
+                with open(directory + filename, 'wb') as file:
+                    pickle.dump(save, file)
 
 def main_pg_reduce_8subspaces():
     """
@@ -828,10 +831,16 @@ def main_pg_reduce_8subspaces():
     To take care of cases that need a comparison, divides the x0, x1 plane into 8 subspaces.
     """
     task = int(os.environ['SLURM_ARRAY_TASK_ID'])
-    t = open(os.getcwd() + '/manifolds_with_least_LWfaces.txt')
-    mflds = t.read().split('\n')
-    M = mflds[task]
-    PG_list = [f for f in os.listdir('/data/keeling/a/chaeryn2/patterns/') if f'pseudogroup_{M}' in f]
+
+    with open(os.getcwd() + 'dim1_manifolds_by_gen', 'rb') as g:
+        f = pickle.load(g)
+    mflds = f[task]
+    PG_list = []
+    for i in range(min(len(mflds), 20)):
+        M = mflds[i]
+        for file in os.listdir('/data/keeling/a/chaeryn2/patterns/'):
+            if f'pseudogroup_{M}' in file:
+                PG_list.append(file)
 
     transforms = [[{'t0': 1, 't1': 0}, {'t0': 3, 't1': 1}],
                   [{'t0': 1, 't1': 1}, {'t0': 2, 't1': 3}],
@@ -843,6 +852,7 @@ def main_pg_reduce_8subspaces():
                   [{'t0': 1, 't1': 3}, {'t0': 0, 't1': 1}]]
 
     for filename in PG_list:
+        manifold_name = filename
         face_num = filename[-1]
         with open('/data/keeling/a/chaeryn2/patterns/' + filename, 'rb') as F:
             master = pickle.load(F)
@@ -955,6 +965,18 @@ def irr_manifolds_by_ebg():
     with open('irr_manifolds_by_genfcn', 'wb') as f:
         pickle.dump(irr_manifolds_by_genfcn, f)
 
+# this function has already been run and the necessary pickle file has been made, just left in case of future use
+def lw_complexes_1dim_by_ebg():
+    df_all = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
+    df = df_all[df_all['LW_dim'] == 1]
+    gen = df['by_genus'].unique().tolist()
+    dim1_manifolds_by_gen = []
+    for gf in gen:
+        df_g = df[df['by_genus'] == gf]
+        df_g.sort_values(by=['LW_num_max_faces', 'tets'], inplace=True)
+        dim1_manifolds_by_gen.append(df_g['name'].tolist())
+    with open('dim1_manifolds_by_gen', 'wb') as f:
+        pickle.dump(dim1_manifolds_by_gen, f)
 
 if __name__ == '__main__':
-    main_pg_reduce_8subspaces()
+    main_original_pg_reduce()
