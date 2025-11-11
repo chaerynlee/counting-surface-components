@@ -791,7 +791,7 @@ def main_original_pg_reduce():
 
     df_all = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
 
-    with open(os.getcwd() + 'dim1_manifolds_by_gen', 'rb') as file:
+    with open(os.getcwd() + '/dim1_manifolds_by_gen', 'rb') as file:
         f = pickle.load(file)
     mflds = f[task]
     df = df_all[df_all['name'].isin(mflds)]
@@ -832,7 +832,7 @@ def main_pg_reduce_8subspaces():
     """
     task = int(os.environ['SLURM_ARRAY_TASK_ID'])
 
-    with open(os.getcwd() + 'dim1_manifolds_by_gen', 'rb') as g:
+    with open(os.getcwd() + '/dim1_manifolds_by_gen', 'rb') as g:
         f = pickle.load(g)
     mflds = f[task]
     PG_list = []
