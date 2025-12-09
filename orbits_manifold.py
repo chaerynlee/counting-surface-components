@@ -539,9 +539,12 @@ class Pairing:
             raise ValueError(f'Contraction interval is not static. {self}, {I}')
 
         shift = Isometry(-I.width)
-        if I.end < self.domain.start:
-            return Pairing(shift(self.domain), shift * self.isometry * ~shift, 0, 0)
-        elif I.end < self.range.start:
+        if I.end < self.domain.start or I.end == self.domain.start:
+            if I.end < self.range.end or I.end == self.range.start:
+                return Pairing(shift(self.domain), shift * self.isometry * ~shift, 0, 0)
+            elif I.start > self.range.end or I.start == self.range.end:
+                return Pairing(shift(self.domain), self.isometry * ~shift, 0, 0)
+        elif I.end < self.range.start or I.end == self.range.start:
             return Pairing(self.domain, shift * self.isometry, 0, 0)
         else:
             return self
@@ -1169,6 +1172,9 @@ class Pseudogroup_comparable():
         result = Polynomial(0)
         I = self.static()
         while I:
+            # print(I)
+            # print(self.pairings)
+            # print(self.universe)
             result += I.width
             if I.end != self.universe.end:
                 self.pairings = [p.contract(I) for p in self.pairings]

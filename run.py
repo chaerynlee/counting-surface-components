@@ -785,7 +785,7 @@ def main_original_pg_reduce():
     Finds all original pseudogroups (comparable version) then reduces as much as possible.
     Saves both the original pseudogroup and reduced pseudogroup.
     Has been run on manifolds with dim=1 LW faces (dim1_manifolds_by_gen), 39 types by genus count and up to max
-    20 manifolds for rach type.
+    20 manifolds for each type.
     """
     task = int(os.environ['SLURM_ARRAY_TASK_ID'])
 
@@ -977,5 +977,26 @@ def lw_complexes_1dim_by_ebg():
     with open('dim1_manifolds_by_gen', 'wb') as f:
         pickle.dump(dim1_manifolds_by_gen, f)
 
+def lw_complexes_1dim_full_polyhedron():
+    df = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
+    with open('dim1_manifolds_by_gen', 'rb') as f:
+        mfld_list = pickle.load(f)
+    for gen in mfld_list:
+        for M in gen:
+            i = df.index[df['name'] == M].values[0]
+            TS = snappy.Manifold(df.iloc[i, df.columns.get_loc('tri_used')])
+            T = regina.Triangulation3(TS)
+            vector_info = df.iloc[i, df.columns.get_loc('vertex_surfaces')]
+            LWC_info = df.iloc[i, df.columns.get_loc('max_faces')]
+            face = eval(LWC_info)[0]
+            surface_names = face['verts']
+            vertex_surface_vectors = [eval(vector_info)[name] for name in surface_names]
+            vertex_surfaces = [regina.NormalSurface(T, regina.NS_QUAD_CLOSED, vec) for vec in
+                                   vertex_surface_vectors]
+            for comb in itertools.product(range(0, 10), repeat=2):
+                S = comb[0] * vertex_surfaces[0] + comb[1] * vertex_surfaces[0]
+    pass
+
+
 if __name__ == '__main__':
-    main_pg_reduce_8subspaces()
+    main_original_pg_reduce()

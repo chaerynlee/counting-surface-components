@@ -212,7 +212,7 @@ class Pairing:
 
     def is_trivial(self):
         """
-        True if the Pairing is  restriction of the identity map.
+        True if the Pairing is restriction of the identity map.
         """
         return (self.is_preserving and self.isometry.shift == 0 or
                 self.domain.width == 1 and self.domain == self.range)
@@ -224,13 +224,28 @@ class Pairing:
         I = ToInterval(I)
         if I ^ self.domain or I ^ self.range:
             raise Illegal('Contraction interval is not static.')
-        shift = Isometry( -I.width )
+
+        # shift = Isometry( -I.width )
+        # if I.end < self.domain.start:
+        #     return Pairing(shift(self.domain), shift * self.isometry * ~shift)
+        # elif I.end < self.range.start:
+        #     return Pairing(self.domain, shift * self.isometry)
+        # else:
+        #     return self
+
         if I.end < self.domain.start:
-            return Pairing(shift(self.domain), shift * self.isometry * ~shift)
+            if I.end < self.range.start:
+                return Pairing(shift(self.domain), shift * self.isometry * ~shift)
+            # added this case in case range is to the left of the domain and the static interval is in between the domain, range
+            elif I.start > self.range.end:
+                return Pairing(shift(self.domain), self.isometry * ~shift)
         elif I.end < self.range.start:
             return Pairing(self.domain, shift * self.isometry)
         else:
             return self
+
+
+
 
     def trim(self):
         """

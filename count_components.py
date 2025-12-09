@@ -45,14 +45,10 @@ class SurfacetoOrbit:
         triangles = triangulation.triangles()
         oriented_edges = []
         for tri in triangles:
-            # print(tri)
             tri_info = []  # list of edge and orientation information of given triangle (always has 3 entries)
             for i in range(3):
-                # print('index', i)
                 edge = tri.edge(i)  # edge index in the triangulation
-                # print(edge)
                 mapping = tri.edgeMapping(i)
-                # print('mapping', mapping)
                 # the first two entries correspond to the vertex indices
                 # 0: 12 or 21, 1: 02 or 20, 2: 01 or 10 depending on the orientation
                 if (mapping[0], mapping[1]) in [(0, 1), (1, 2), (2, 0)]:
@@ -61,16 +57,13 @@ class SurfacetoOrbit:
                     orientation = -1
                 tri_info.append((int(edge.index()), orientation))
             oriented_edges.append(tri_info)  # list of lists of information for each triangle (has (# of faces) entries which are lists)
-            # print()
         return oriented_edges
 
     def _find_intersections2d(self):
-        # print(self.triangulation.detail())
         ori_edges = self.oriented_edges(self.triangulation)
-        # print(ori_edges)
         triangles = self.triangulation.triangles()
+
         for t, tri in enumerate(triangles):
-            # print('tri', t)
             for i in range(3):
                 width_regina = self.surface.arcs(tri.index(), i)
                 width = int(width_regina.stringValue())
@@ -79,15 +72,9 @@ class SurfacetoOrbit:
                 else:
                     domain_edge = tri.edge((i + 1) % 3).index()
                     range_edge = tri.edge((i + 2) % 3).index()
-                    # print('domain', domain_edge)
-                    # print('range', range_edge)
                     domain_ori = ori_edges[t][(i + 1) % 3][1]
                     range_ori = ori_edges[t][(i + 2) % 3][1]
-                    # print('domain_ori', domain_ori)
-                    # print('range_ori', range_ori)
                     if domain_ori == 1:
-                        # print(self.interval_divided)
-                        # print(width)
                         domain_interval = [self.interval_divided[domain_edge][-width],
                                            self.interval_divided[domain_edge][-1]]
                     elif domain_ori == -1:
@@ -110,12 +97,13 @@ class SurfacetoOrbit:
 
 
 def main():
-    M = snappy.Manifold('K13n586')
+    M = snappy.Manifold('t12647')
     CS = connected_surfaces.ConnectedSurfaces(M, -6)
     LW = CS.essential_faces_of_normal_polytope()
     vertex_surfaces = [face.vertex_surfaces for face in LW.maximal]
     F = vertex_surfaces[0][0]
     G = vertex_surfaces[0][1]
+    print(type(F))
     # S = 5 * F + 2 * G
     # SO = SurfacetoOrbit(S.surface)
     # print('interval', SO.interval)
@@ -128,8 +116,7 @@ def main():
     for comb in itertools.product(range(1, 10), repeat=2):
         S = comb[0] * F + comb[1] * G
         SO = SurfacetoOrbit(S.surface)
-        print(comb)
-        print('number of components', SO.countcomponents())
+        print(comb, 'number of components', SO.countcomponents())
 
 def check(manifold, genus):
     df = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
@@ -203,7 +190,7 @@ def test_group():
 
 
 if __name__ == '__main__':
-    check('o9_41182', 18)
+    main()
 
     # example that didn't work
     # I = orbits.Interval(1, 6)

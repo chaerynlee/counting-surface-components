@@ -260,9 +260,9 @@ if __name__ == '__main__':
     #     count = extend_gen_fcn(M, 21, all=True)
     #     print(M, actual_count == count)
 
-    M = 'o9_41182'
-
+    M = 't12647'
     print(M)
+    print(extend_gen_fcn('t12647', 20, all=True))
 
     df = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
     i = df.index[df['name'] == M].values[0]
@@ -280,58 +280,59 @@ if __name__ == '__main__':
                   [{'t0': 3, 't1': 2}, {'t0': 1, 't1': 1}],
                   [{'t0': 1, 't1': 3}, {'t0': 0, 't1': 1}]]
 
-    inverse_transforms = [[{'x0': 1, 'x1': 0}, {'x0': -3, 'x1': 1}],
-                          [{'x0': 3, 'x1': -1}, {'x0': -2, 'x1': 1}],
-                          [{'x0': 2, 'x1': -1}, {'x0': -3, 'x1': 2}],
-                          [{'x0': 3, 'x1': -2}, {'x0': -1, 'x1': 1}],
-                          [{'x0': 1, 'x1': 1}, {'x0': -2, 'x1': 3}],
-                          [{'x0': 2, 'x1': -3}, {'x0': -1, 'x1': 2}],
-                          [{'x0': 1, 'x1': -2}, {'x0': -1, 'x1': 3}],
-                          [{'x0': 1, 'x1': -3}, {'x0': 0, 'x1': 1}]]
+    # transforms = [[{'t0': 1, 't1': 0}, {'t0': 1, 't1': 1}],
+    #               [{'t0': 1, 't1': 1}, {'t0': 0, 't1': 1}]]
 
-    # face = eval(LWC_info)[3]
-    # print(face)
-    # surface_names = face['verts']
-    # print(surface_names)
-    # vertex_surface_vectors = [eval(vector_info)[name] for name in surface_names]
-    # vertex_surfaces = [regina.NormalSurface(T, regina.NS_QUAD_CLOSED, vec) for vec in vertex_surface_vectors]
-    # SO = SurfacetoOrbit(vertex_surfaces)
-    # # G = Pseudogroup(SO.pairings, SO.interval, SO.interval_divided)
-    # # simplified_interval, simplified_pairings = G.reduce_amap()
-    # # GS = Pseudogroup_comparable(simplified_pairings, simplified_interval)
-    # GS = Pseudogroup_comparable(SO.pairings, SO.interval)
-    # print(GS.reduce())
-    #
-    # GS.transform([{'y0': 1, 'y1': 0}, {'y0': 1, 'y1': 1}])
-    # print(GS.reduce())
-    # GS.transform([{'t0': 1, 't1': 0}, {'t0': 1, 't1': 1}])
-    # GS.reduce()
+    # inverse_transforms = [[{'x0': 1, 'x1': 0}, {'x0': -3, 'x1': 1}],
+    #                       [{'x0': 3, 'x1': -1}, {'x0': -2, 'x1': 1}],
+    #                       [{'x0': 2, 'x1': -1}, {'x0': -3, 'x1': 2}],
+    #                       [{'x0': 3, 'x1': -2}, {'x0': -1, 'x1': 1}],
+    #                       [{'x0': 1, 'x1': -1}, {'x0': -2, 'x1': 3}],
+    #                       [{'x0': 2, 'x1': -3}, {'x0': -1, 'x1': 2}],
+    #                       [{'x0': 1, 'x1': -2}, {'x0': -1, 'x1': 3}],
+    #                       [{'x0': 1, 'x1': -3}, {'x0': 0, 'x1': 1}]]
 
-    # GS.transform([{'z0': 1, 'z1': 0}, {'z0': 2, 'z1': 1}])
-    # print(GS.reduce())
-    # GS.transform([{'z0': 1, 'z1': 1}, {'z0': 1, 'z1': 2}])
-    # print(GS.reduce())
-    # GS.transform([{'z0': 2, 'z1': 1}, {'z0': 1, 'z1': 1}])
-    # print(GS.reduce())
-    # GS.transform([{'z0': 1, 'z1': 2}, {'z0': 0, 'z1': 1}])
-    # print(GS.reduce())
+    inverse_transforms = [[{'x0': 1, 'x1': 0}, {'x0': 1, 'x1': -1}],
+                          [{'x0': 1, 'x1': -1}, {'x0': 0, 'x1': 1}]]
 
-    # GS.transform([{'z0': 1, 'z1': 0}, {'z0': 3, 'z1': 1}])
-    # print(GS.reduce())
-    # GS.transform([{'z0': 1, 'z1': 1}, {'z0': 2, 'z1': 3}])
-    # print(GS.reduce())
-    # GS.transform([{'z0': 2, 'z1': 1}, {'z0': 3, 'z1': 2}])
-    # print(GS.reduce())
-    # GS.transform([{'z0': 1, 'z1': 2}, {'z0': 1, 'z1': 3}])
-    # print(GS.reduce())
-    # GS.transform([{'z0': 3, 'z1': 1}, {'z0': 2, 'z1': 1}])
-    # print(GS.reduce())
-    # GS.transform([{'z0': 2, 'z1': 3}, {'z0': 1, 'z1': 2}])
-    # print(GS.reduce())
-    # GS.transform([{'z0': 3, 'z1': 2}, {'z0': 1, 'z1': 1}])
-    # print(GS.reduce())
-    # GS.transform([{'z0': 1, 'z1': 3}, {'z0': 0, 'z1': 1}])
-    # print(GS.reduce())
+    for face_num, face in enumerate(eval(LWC_info)):
+        print('face', face_num)
+        surface_names = face['verts']
+        vertex_surface_vectors = [eval(vector_info)[name] for name in surface_names]
+        vertex_surfaces = [regina.NormalSurface(T, regina.NS_QUAD_CLOSED, vec) for vec in
+                           vertex_surface_vectors]
+        # SO = SurfacetoOrbit(vertex_surfaces)
+        # X = vertex_surfaces[0]
+        # Y = vertex_surfaces[1]
+        # G = Pseudogroup_comparable(SO.pairings, SO.interval)
+        #
+        # for comb in itertools.product(range(1, 10), repeat=2):
+        #     assign = dict()
+        #     for n in range(2):
+        #         var_name = 'x' + str(n)
+        #         assign[var_name] = comb[n]
+        #     # S = count_components.SurfacetoOrbit(X*regina.LargeInteger(assign['x0']) + Y*regina.LargeInteger(assign['x1']))
+        #     G_num = evaluate_pseudogroup(G.universe, G.pairings, assign)
+        #     print(assign, G_num)
+
+        for j, t in enumerate(transforms):
+            print('case', j, t)
+            SO = SurfacetoOrbit(vertex_surfaces)
+            G = Pseudogroup_comparable(SO.pairings, SO.interval)
+            G.transform(t)
+
+            count = G.reduce()
+            print(count)
+            for comb in itertools.product(range(1, 10), repeat=2):
+                assign = dict()
+                for n in range(2):
+                    var_name = 't' + str(n)
+                    assign[var_name] = comb[n]
+                G_num = evaluate_pseudogroup(G.universe, G.pairings, assign)
+                print(assign, G_num)
+            # if (isinstance(count, Polynomial)):
+            #     print(linear_transform_poly(count, inverse_transforms[j]))
+            print()
 
 
     # for n in range(1, 7):

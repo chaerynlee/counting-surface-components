@@ -50,12 +50,12 @@ class SurfacetoOrbit:
         for p in edge_weights_int:
             total_count += p
 
-        # single interval corresponding to all intersections with edges, starts at 1 not 0
+        # single interval corresponding to all intersections with edges, starts at 0 since it is continuous
         self.interval = orbits_manifold.Interval(orbits_manifold.Polynomial(0), total_count)
         # was self.interval = orbits_manifold.Interval(orbits_manifold.Polynomial(1), total_count)
 
         # list of integer lists where each list contains the start and end integers corresponding to the given edge
-        # e.g. if edge0 has 3 intersections then we have [[1, 3], [...], ...]
+        # e.g. if edge0 has 3 intersections then we have [[0, 3], [...], ...]
         self.interval_divided = []
         for i, n in enumerate(edge_weights_int):
             if n == orbits_manifold.Polynomial(0):
@@ -98,7 +98,7 @@ class SurfacetoOrbit:
                     width += self.R[n] * orbits_manifold.Polynomial(int(width_regina.stringValue()))
 
                 if width == orbits_manifold.Polynomial(0):
-                    break
+                    continue
                 else:
                     domain_edge = ori_edges[t][(i + 1) % 3][0]
                     range_edge = ori_edges[t][(i + 2) % 3][0]
@@ -143,7 +143,7 @@ def main():
     import snappy, regina
     import nscomplex_updated
     # M = snappy.Manifold('v2946')
-    M = snappy.Manifold('K13n586_nice.tri')
+    M = snappy.Manifold('t12647')
     CS = ConnectedSurfaces(M, -6)
     LW = CS.essential_faces_of_normal_polytope()
     LW_faces = LW.maximal
@@ -164,10 +164,6 @@ def main():
     print('pairings:')
     for pairing in SO.pairings:
         print(pairing)
-
-    f = open('example.pickle', 'wb')
-    pickle.dump([SO.interval, SO.interval_divided, SO.pairings], f)
-    f.close()
 
     # Other examples: our manifold has the same a_g(M) pattern as the second one in the table in Section8 of DGR
     # look in very_large_combined.csv in nscomplex for manifolds with the same a_g(M) pattern
