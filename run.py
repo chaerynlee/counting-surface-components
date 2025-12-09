@@ -885,7 +885,7 @@ def transform_original(result, case_num):
 
     if isinstance(result, Polynomial):
         return linear_transform_poly(result, inverse_transforms[case_num])
-    if isintance(result, Pseudogroup_comparable):
+    if isinstance(result, Pseudogroup_comparable):
         return result.transform(inverse_transforms[case_num])
 
 # this function has already been run on Keeling and necessary results have been produced
