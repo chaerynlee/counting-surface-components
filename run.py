@@ -999,4 +999,4 @@ def lw_complexes_1dim_full_polyhedron():
 
 
 if __name__ == '__main__':
-    main_original_pg_reduce()
+    main_pg_reduce_8subspaces()
