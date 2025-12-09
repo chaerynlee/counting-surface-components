@@ -12,6 +12,7 @@
 from count_components_manifold import *
 from orbits_manifold import *
 from find_patterns import *
+from nscomplex_updated import *
 import os, multiprocessing, gc, copy
 import pandas as pd
 import snappy.snap.t3mlite as t3m
@@ -872,6 +873,21 @@ def main_pg_reduce_8subspaces():
                 with open(directory + filename, 'wb') as file:
                     pickle.dump(save, file)
 
+def transform_original(result, case_num):
+    inverse_transforms = [[{'x0': 1, 'x1': 0}, {'x0': -3, 'x1': 1}],
+                          [{'x0': 3, 'x1': -1}, {'x0': -2, 'x1': 1}],
+                          [{'x0': 2, 'x1': -1}, {'x0': -3, 'x1': 2}],
+                          [{'x0': 3, 'x1': -2}, {'x0': -1, 'x1': 1}],
+                          [{'x0': 1, 'x1': -1}, {'x0': -2, 'x1': 3}],
+                          [{'x0': 2, 'x1': -3}, {'x0': -1, 'x1': 2}],
+                          [{'x0': 1, 'x1': -2}, {'x0': -1, 'x1': 3}],
+                          [{'x0': 1, 'x1': -3}, {'x0': 0, 'x1': 1}]]
+
+    if isinstance(result, Polynomial):
+        return linear_transform_poly(result, inverse_transforms[case_num])
+    if isintance(result, Pseudogroup_comparable):
+        return result.transform(inverse_transforms[case_num])
+
 # this function has already been run on Keeling and necessary results have been produced
 def check_extend_gen_fcn():
     """
@@ -981,22 +997,51 @@ def lw_complexes_1dim_full_polyhedron():
     df = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
     with open('dim1_manifolds_by_gen', 'rb') as f:
         mfld_list = pickle.load(f)
+    exclude = []
     for gen in mfld_list:
         for M in gen:
             i = df.index[df['name'] == M].values[0]
             TS = snappy.Manifold(df.iloc[i, df.columns.get_loc('tri_used')])
             T = regina.Triangulation3(TS)
+            LWC_info = df.iloc[i, df.columns.get_loc('all_faces')]
             vector_info = df.iloc[i, df.columns.get_loc('vertex_surfaces')]
-            LWC_info = df.iloc[i, df.columns.get_loc('max_faces')]
-            face = eval(LWC_info)[0]
-            surface_names = face['verts']
-            vertex_surface_vectors = [eval(vector_info)[name] for name in surface_names]
-            vertex_surfaces = [regina.NormalSurface(T, regina.NS_QUAD_CLOSED, vec) for vec in
-                                   vertex_surface_vectors]
-            for comb in itertools.product(range(0, 10), repeat=2):
-                S = comb[0] * vertex_surfaces[0] + comb[1] * vertex_surfaces[0]
-    pass
+            genera_info = df.iloc[i, df.columns.get_loc('vertex_genera')]
+            print(M)
+            print(genera_info)
+
+            for g in range(2, 6):
+                actual_count = 0
+                comb_count = 0
+                for face in eval(LWC_info):
+                    dim = face['dim']
+                    surface_names = face['verts']
+                    vertex_surface_vectors = [eval(vector_info)[name] for name in surface_names]
+                    vertex_surfaces = [regina.NormalSurface(T, regina.NS_QUAD_CLOSED, vec) for vec in vertex_surface_vectors]
+                    vertex_surfaces_ns = [surfaces.NormalSurface(S, i) for i, S in enumerate(vertex_surfaces)]
+                    AF = faces.AdmissibleFace_nozeroset(dim, vertex_surfaces_ns)
+                    actual_count += len(AF.surfaces_of_potential_genus_in_interior(g))
+
+                    if dim == 0:
+                        for n in range(1, 11):
+                            S = vertex_surfaces[0] * n
+                            genus = 1 - 0.5 * regina_util.to_int(S.eulerChar())
+                            if genus == g:
+                                comb_count += 1
+                    if dim == 1:
+                        for comb in itertools.product(range(1, 10), repeat=2):
+                            S = vertex_surfaces[0] * comb[0] + vertex_surfaces[1] * comb[1]
+                            genus = 1 - 0.5 * regina_util.to_int(S.eulerChar())
+                            if genus == g:
+                                comb_count += 1
+
+                if actual_count != comb_count:
+                    print('added', M)
+                    exclude.append(M)
+                    break
+
+    with open('dim1_manifolds_exclude', 'wb') as g:
+        pickle.dump(exclude, g)
 
 
 if __name__ == '__main__':
-    main_pg_reduce_8subspaces()
+    lw_complexes_1dim_full_polyhedron()

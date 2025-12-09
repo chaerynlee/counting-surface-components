@@ -261,8 +261,6 @@ if __name__ == '__main__':
     #     print(M, actual_count == count)
 
     M = 't12647'
-    print(M)
-    print(extend_gen_fcn('t12647', 20, all=True))
 
     df = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
     i = df.index[df['name'] == M].values[0]
