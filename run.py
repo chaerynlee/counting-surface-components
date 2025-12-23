@@ -993,6 +993,7 @@ def lw_complexes_1dim_by_ebg():
     with open('dim1_manifolds_by_gen', 'wb') as f:
         pickle.dump(dim1_manifolds_by_gen, f)
 
+# this function has already been run and the necessary pickle file has been made, just left in case of future use
 def lw_complexes_1dim_full_polyhedron():
     df = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
     with open('dim1_manifolds_by_gen', 'rb') as f:
@@ -1044,7 +1045,7 @@ def lw_complexes_1dim_full_polyhedron():
 
 
 if __name__ == '__main__':
-    main_original_pg_reduce()
+    main_pg_reduce_8subspaces()
 
     # df = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
     # M = 'K15n129923'
