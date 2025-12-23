@@ -1044,4 +1044,80 @@ def lw_complexes_1dim_full_polyhedron():
 
 
 if __name__ == '__main__':
-    lw_complexes_1dim_full_polyhedron()
+    main_original_pg_reduce()
+
+    # df = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
+    # M = 'K15n129923'
+    #
+    # i = df.index[df['name'] == M].values[0]
+    # TS = snappy.Manifold(df.iloc[i, df.columns.get_loc('tri_used')])
+    # T = regina.Triangulation3(TS)
+    # LWC_info = df.iloc[i, df.columns.get_loc('all_faces')]
+    # vector_info = df.iloc[i, df.columns.get_loc('vertex_surfaces')]
+    # genera_info = df.iloc[i, df.columns.get_loc('vertex_genera')]
+    # print(M)
+    #
+    # for face in eval(LWC_info):
+    #     print('face', face)
+    #     surface_names = face['verts']
+    #     dim = face['dim']
+    #
+    #     vertex_surface_vectors = [eval(vector_info)[name] for name in surface_names]
+    #     # print('vertex surfaces', vertex_surface_vectors)
+    #     vertex_surface_genera = [eval(genera_info)[name] for name in surface_names]
+    #     vertex_surfaces = [regina.NormalSurface(T, regina.NS_QUAD_CLOSED, vec) for vec in vertex_surface_vectors]
+    #     vertex_surfaces_ns = [surfaces.NormalSurface(S, i) for i, S in enumerate(vertex_surfaces)]
+    #     num_var = len(surface_names)
+    #
+    #     AF = faces.AdmissibleFace_nozeroset(dim, vertex_surfaces_ns)
+    #     for genus in range(1,21):
+    #         count = 0
+    #         solutions = AF.surfaces_of_potential_genus_in_interior(genus)
+    #         for sol in solutions:
+    #             num_comp = count_components.SurfacetoOrbit(sol).countcomponents()
+    #             if num_comp == 1:
+    #                 count += 1
+    #         print(genus, count)
+    #     print()
+
+    # for face in eval(LWC_info):
+    #     dim = face['dim']
+    #     surface_names = face['verts']
+    #     vertex_surface_vectors = [eval(vector_info)[name] for name in surface_names]
+    #     vertex_surfaces = [regina.NormalSurface(T, regina.NS_QUAD_CLOSED, vec) for vec in
+    #                        vertex_surface_vectors]
+    #     vertex_surfaces_ns = [surfaces.NormalSurface(S, i) for i, S in enumerate(vertex_surfaces)]
+    #     AF = faces.AdmissibleFace_nozeroset(dim, vertex_surfaces_ns)
+    #     verts = [-2 * v for v in AF.euler_one_vertices]
+    #     C = Cone(verts)
+    #     print(C.Hilbert_basis())
+    #     print()
+
+    # for g in range(2, 20):
+    #     actual_count = 0
+    #     comb_count = 0
+    #     for face in eval(LWC_info):
+    #         dim = face['dim']
+    #         surface_names = face['verts']
+    #         vertex_surface_vectors = [eval(vector_info)[name] for name in surface_names]
+    #         vertex_surfaces = [regina.NormalSurface(T, regina.NS_QUAD_CLOSED, vec) for vec in
+    #                            vertex_surface_vectors]
+    #         vertex_surfaces_ns = [surfaces.NormalSurface(S, i) for i, S in enumerate(vertex_surfaces)]
+    #         AF = faces.AdmissibleFace_nozeroset(dim, vertex_surfaces_ns)
+    #         actual_count += len(AF.surfaces_of_potential_genus_in_interior(g))
+    #
+    #         if dim == 0:
+    #             for n in range(1, 100):
+    #                 S = vertex_surfaces[0] * n
+    #                 genus = 1 - 0.5 * regina_util.to_int(S.eulerChar())
+    #                 if genus == g:
+    #                     comb_count += 1
+    #         if dim == 1:
+    #             for comb in itertools.product(range(1, 100), repeat=2):
+    #                 S = vertex_surfaces[0] * comb[0] + vertex_surfaces[1] * comb[1]
+    #                 genus = 1 - 0.5 * regina_util.to_int(S.eulerChar())
+    #                 if genus == g:
+    #                     comb_count += 1
+    #
+    #     if actual_count != comb_count:
+    #         print('not relevant', M)

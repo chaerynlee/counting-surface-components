@@ -260,7 +260,7 @@ if __name__ == '__main__':
     #     count = extend_gen_fcn(M, 21, all=True)
     #     print(M, actual_count == count)
 
-    M = 't12647'
+    M = 'K15n129923'
 
     df = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
     i = df.index[df['name'] == M].values[0]
@@ -290,8 +290,8 @@ if __name__ == '__main__':
     #                       [{'x0': 1, 'x1': -2}, {'x0': -1, 'x1': 3}],
     #                       [{'x0': 1, 'x1': -3}, {'x0': 0, 'x1': 1}]]
 
-    inverse_transforms = [[{'x0': 1, 'x1': 0}, {'x0': 1, 'x1': -1}],
-                          [{'x0': 1, 'x1': -1}, {'x0': 0, 'x1': 1}]]
+    # inverse_transforms = [[{'x0': 1, 'x1': 0}, {'x0': 1, 'x1': -1}],
+    #                       [{'x0': 1, 'x1': -1}, {'x0': 0, 'x1': 1}]]
 
     for face_num, face in enumerate(eval(LWC_info)):
         print('face', face_num)
@@ -321,13 +321,13 @@ if __name__ == '__main__':
 
             count = G.reduce()
             print(count)
-            for comb in itertools.product(range(1, 10), repeat=2):
-                assign = dict()
-                for n in range(2):
-                    var_name = 't' + str(n)
-                    assign[var_name] = comb[n]
-                G_num = evaluate_pseudogroup(G.universe, G.pairings, assign)
-                print(assign, G_num)
+            # for comb in itertools.product(range(1, 10), repeat=2):
+            #     assign = dict()
+            #     for n in range(2):
+            #         var_name = 't' + str(n)
+            #         assign[var_name] = comb[n]
+            #     G_num = evaluate_pseudogroup(G.universe, G.pairings, assign)
+            #     print(assign, G_num)
             # if (isinstance(count, Polynomial)):
             #     print(linear_transform_poly(count, inverse_transforms[j]))
             print()

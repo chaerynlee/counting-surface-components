@@ -92,8 +92,11 @@ class SurfacetoOrbit:
                         self.pairings.append(orbits.Shift(domain_interval, range_interval))
 
     def countcomponents(self):
-        G = orbits.Pseudogroup(self.pairings, self.interval)
-        return G.reduce()
+        if self.pairings == []:
+            return self.interval.width
+        else:
+            G = orbits.Pseudogroup(self.pairings, self.interval)
+            return G.reduce()
 
 
 def main():
