@@ -1,6 +1,6 @@
 #! /data/keeling/a/nmd/miniconda3/envs/sage_full/bin/sage-python -u
 
-#SBATCH --array=0-38
+#SBATCH --array=0-36
 #SBATCH --partition m
 #SBATCH --tasks=1
 #SBATCH --mem-per-cpu=4G
@@ -1007,8 +1007,6 @@ def lw_complexes_1dim_full_polyhedron():
             LWC_info = df.iloc[i, df.columns.get_loc('all_faces')]
             vector_info = df.iloc[i, df.columns.get_loc('vertex_surfaces')]
             genera_info = df.iloc[i, df.columns.get_loc('vertex_genera')]
-            print(M)
-            print(genera_info)
 
             for g in range(2, 6):
                 actual_count = 0
@@ -1043,26 +1041,117 @@ def lw_complexes_1dim_full_polyhedron():
     with open('dim1_manifolds_exclude', 'wb') as g:
         pickle.dump(exclude, g)
 
+def lw_complexes_1dim_irregular():
+    task = int(os.environ['SLURM_ARRAY_TASK_ID'])
+
+    with open('irr_manifolds_by_genfcn', 'rb') as file:
+        irr_list = pickle.load(file)
+    df = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
+
+    exclude = []
+    for M in irr_list[task]:
+        i = df.index[df['name'] == M].values[0]
+        TS = snappy.Manifold(df.iloc[i, df.columns.get_loc('tri_used')])
+        T = regina.Triangulation3(TS)
+        LWC_info = df.iloc[i, df.columns.get_loc('all_faces')]
+        vector_info = df.iloc[i, df.columns.get_loc('vertex_surfaces')]
+        genera_info = df.iloc[i, df.columns.get_loc('vertex_genera')]
+
+        for g in range(2, 10):
+            actual_count = 0
+            comb_count = 0
+            for face in eval(LWC_info):
+                dim = face['dim']
+                surface_names = face['verts']
+                vertex_surface_vectors = [eval(vector_info)[name] for name in surface_names]
+                vertex_surfaces = [regina.NormalSurface(T, regina.NS_QUAD_CLOSED, vec) for vec in
+                                   vertex_surface_vectors]
+                vertex_surfaces_ns = [surfaces.NormalSurface(S, i) for i, S in enumerate(vertex_surfaces)]
+                AF = faces.AdmissibleFace_nozeroset(dim, vertex_surfaces_ns)
+                actual_count += len(AF.surfaces_of_potential_genus_in_interior(g))
+
+                if dim == 0:
+                    for n in range(1, 11):
+                        S = vertex_surfaces[0] * n
+                        genus = 1 - 0.5 * regina_util.to_int(S.eulerChar())
+                        if genus == g:
+                            comb_count += 1
+                if dim == 1:
+                    for comb in itertools.product(range(1, 10), repeat=2):
+                        S = vertex_surfaces[0] * comb[0] + vertex_surfaces[1] * comb[1]
+                        genus = 1 - 0.5 * regina_util.to_int(S.eulerChar())
+                        if genus == g:
+                            comb_count += 1
+
+            if actual_count != comb_count:
+                print('added', M)
+                exclude.append(M)
+                break
+
+    directory = '/data/keeling/a/chaeryn2/patterns/'
+    filename = f'irr_dim1_manifolds_exclude_{str(task)}'
+    with open(directory + filename, 'wb') as file:
+        pickle.dump(exclude, file)
+
 
 if __name__ == '__main__':
-    main_pg_reduce_8subspaces()
+    lw_complexes_1dim_irregular()
+    # main_pg_reduce_8subspaces()
 
     # df = pd.read_csv(os.getcwd() + '/very_large_combined.csv')
-    # M = 'K15n129923'
+
+    # with open('dim1_manifolds_by_gen', 'rb') as file:
+    #     all_dim1 = pickle.load(file)
+    # for group in all_dim1:
+    #     M = group[0]
     #
+    #     i = df.index[df['name'] == M].values[0]
+    #     genus_count = df.iloc[i, df.columns.get_loc('by_genus')]
+    #     print(M)
+    #     print(genus_count)
+
+    # with open('dim1_manifolds_exclude', 'rb') as file:
+    #     excluded = pickle.load(file)
+    #
+    # for M in excluded:
+    #     print(M)
+    #     i = df.index[df['name'] == M].values[0]
+    #     TS = snappy.Manifold(df.iloc[i, df.columns.get_loc('tri_used')])
+    #     T = regina.Triangulation3(TS)
+    #     LWC_info = df.iloc[i, df.columns.get_loc('max_faces')]
+    #     vector_info = df.iloc[i, df.columns.get_loc('vertex_surfaces')]
+    #     genera_info = df.iloc[i, df.columns.get_loc('vertex_genera')]
+    #
+    #     for face in eval(LWC_info):
+    #         print(face)
+    #         dim = face['dim']
+    #         if dim == 0:
+    #             continue
+    #         else:
+    #             surface_names = face['verts']
+    #             vertex_surface_vectors = [eval(vector_info)[name] for name in surface_names]
+    #             vertex_surfaces = [regina.NormalSurface(T, regina.NS_QUAD_CLOSED, vec) for vec in
+    #                                vertex_surface_vectors]
+    #             vertex_surfaces_ns = [surfaces.NormalSurface(S, i) for i, S in enumerate(vertex_surfaces)]
+    #             AF = faces.AdmissibleFace_nozeroset(dim, vertex_surfaces_ns)
+    #             verts = [-2 * v for v in AF.euler_one_vertices]
+    #             C = Cone(verts)
+    #             print(C.Hilbert_basis())
+    #     print()
+
+    # M = 'K15n129923'
+    # print(M)
     # i = df.index[df['name'] == M].values[0]
     # TS = snappy.Manifold(df.iloc[i, df.columns.get_loc('tri_used')])
     # T = regina.Triangulation3(TS)
-    # LWC_info = df.iloc[i, df.columns.get_loc('all_faces')]
+    # LWC_info = df.iloc[i, df.columns.get_loc('max_faces')]
     # vector_info = df.iloc[i, df.columns.get_loc('vertex_surfaces')]
     # genera_info = df.iloc[i, df.columns.get_loc('vertex_genera')]
-    # print(M)
     #
     # for face in eval(LWC_info):
     #     print('face', face)
     #     surface_names = face['verts']
     #     dim = face['dim']
-    #
     #     vertex_surface_vectors = [eval(vector_info)[name] for name in surface_names]
     #     # print('vertex surfaces', vertex_surface_vectors)
     #     vertex_surface_genera = [eval(genera_info)[name] for name in surface_names]
@@ -1071,7 +1160,7 @@ if __name__ == '__main__':
     #     num_var = len(surface_names)
     #
     #     AF = faces.AdmissibleFace_nozeroset(dim, vertex_surfaces_ns)
-    #     for genus in range(1,21):
+    #     for genus in range(1,61):
     #         count = 0
     #         solutions = AF.surfaces_of_potential_genus_in_interior(genus)
     #         for sol in solutions:
@@ -1079,19 +1168,6 @@ if __name__ == '__main__':
     #             if num_comp == 1:
     #                 count += 1
     #         print(genus, count)
-    #     print()
-
-    # for face in eval(LWC_info):
-    #     dim = face['dim']
-    #     surface_names = face['verts']
-    #     vertex_surface_vectors = [eval(vector_info)[name] for name in surface_names]
-    #     vertex_surfaces = [regina.NormalSurface(T, regina.NS_QUAD_CLOSED, vec) for vec in
-    #                        vertex_surface_vectors]
-    #     vertex_surfaces_ns = [surfaces.NormalSurface(S, i) for i, S in enumerate(vertex_surfaces)]
-    #     AF = faces.AdmissibleFace_nozeroset(dim, vertex_surfaces_ns)
-    #     verts = [-2 * v for v in AF.euler_one_vertices]
-    #     C = Cone(verts)
-    #     print(C.Hilbert_basis())
     #     print()
 
     # for g in range(2, 20):
